@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.5.19
-Release: 1.17%{?dist}
+Release: 1.19%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -23,6 +23,10 @@ Patch13: strace-rh837183-3.patch
 Patch14: strace-rh837183-4.patch
 Patch15: strace-rh837183-5.patch
 Patch16: strace-rh837183-6.patch
+Patch17: strace-rh862321.patch
+Patch18: strace-rh921548.patch
+Patch19: strace-rh1044605.patch
+Patch20: strace-rh862321-2.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libaio-devel, libacl-devel
@@ -82,6 +86,10 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch14 -p1
 %patch15 -p1
 %patch16 -p1
+%patch17 -p1
+%patch18 -p1
+%patch19 -p1
+%patch20 -p1
 
 %build
 %configure
@@ -119,6 +127,14 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Thu Jul 4 2014 Jeff Law <law@redhat.com> - 4.5.19-1.19
+- More fixes for getsockopt (#862321)
+
+* Mon Apr 7 2014 Jeff Law <law@redhat.com> - 4.5.19-1.18
+- Fix output string for getsockopt (#862321)
+- Handle MADV_DONTDUMP and MADV_DODUMP (#921548)
+- Do not segfault when sorting by name and name is NULL (# 1044605)
+
 * Mon Dec 12 2012 Jeff Law <law@redhat.com> - 4.5.19-1.17
 - Add Obsoletes: strace64
 
