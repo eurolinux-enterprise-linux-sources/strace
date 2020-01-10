@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.8
-Release: 10%{?dist}
+Release: 11%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -18,6 +18,7 @@ Patch1004: strace-rh1044044.patch
 Patch1005: strace-4.8-ppc64.patch
 Patch1006: strace-rh1129572.patch
 Patch1007: strace-rh1214041.patch
+Patch1008: strace-rh1342669.patch
 
 
 # In the past we had a separate strace64 package, these days the
@@ -66,6 +67,7 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch1005 -p1
 %patch1006 -p1
 %patch1007 -p1
+%patch1008 -p1
 
 %build
 %configure
@@ -109,6 +111,9 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Tue Oct 4 2016 DJ Delorie <dj@redhat.com> 4.8-11
+- Allow both -eread and -ewrite at the same time (#1342669)
+
 * Wed Apr 22 2015 Jeff Law <law@redhat.com> 4.8-10
 - Fix race which caused follow-fork option to not always
   work (#1214041)

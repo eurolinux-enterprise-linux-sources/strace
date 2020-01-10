@@ -1,0 +1,19 @@
+diff -rup a/syscall.c b/syscall.c
+--- a/syscall.c	2013-05-14 10:10:42.000000000 -0400
++++ b/syscall.c	2016-10-04 19:32:09.680543953 -0400
+@@ -2476,7 +2476,6 @@ dumpio(struct tcb *tcp)
+ 			dumpstr(tcp, tcp->u_arg[1], tcp->u_rval);
+ 		else if (func == sys_readv)
+ 			dumpiov(tcp, tcp->u_arg[2], tcp->u_arg[1]);
+-		return;
+ 	}
+ 	if (qual_flags[tcp->u_arg[0]] & QUAL_WRITE) {
+ 		if (func == sys_write ||
+@@ -2486,7 +2485,6 @@ dumpio(struct tcb *tcp)
+ 			dumpstr(tcp, tcp->u_arg[1], tcp->u_arg[2]);
+ 		else if (func == sys_writev)
+ 			dumpiov(tcp, tcp->u_arg[2], tcp->u_arg[1]);
+-		return;
+ 	}
+ }
+ 
