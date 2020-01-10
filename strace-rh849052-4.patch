@@ -1,0 +1,58 @@
+Avoids regression with the introduction of test_ptrace_setoptions support.
+
+commit 8044bc1463f62ae5f974cc531576bc18dade0337
+Author: Dmitry V. Levin <ldv@altlinux.org>
+Date:   Tue Dec 7 12:50:49 2010 +0000
+
+    Fix strace -f -o '|command' hangup
+    
+    * strace.c (main): Call test_ptrace_setoptions() before parsing
+    -o option, otherwise a forked command will cause a hangup inside
+    test_ptrace_setoptions().
+
+diff --git a/strace.c b/strace.c
+index fd12b34..e1ae8f1 100644
+--- a/strace.c
++++ b/strace.c
+@@ -945,6 +945,20 @@ main(int argc, char *argv[])
+ 		run_gid = getgid();
+ 	}
+ 
++#ifdef LINUX
++	if (followfork) {
++		if (test_ptrace_setoptions() < 0) {
++			fprintf(stderr,
++				"Test for options supported by PTRACE_SETOPTIONS "
++				"failed, giving up using this feature.\n");
++			ptrace_setoptions = 0;
++		}
++		if (debug)
++			fprintf(stderr, "ptrace_setoptions = %#x\n",
++				ptrace_setoptions);
++	}
++#endif
++
+ 	/* Check if they want to redirect the output. */
+ 	if (outfname) {
+ 		/* See if they want to pipe the output. */
+@@ -975,20 +989,6 @@ main(int argc, char *argv[])
+ 		qflag = 1;
+ 	}
+ 
+-#ifdef LINUX
+-	if (followfork) {
+-		if (test_ptrace_setoptions() < 0) {
+-			fprintf(stderr,
+-				"Test for options supported by PTRACE_SETOPTIONS "
+-				"failed, giving up using this feature.\n");
+-			ptrace_setoptions = 0;
+-		}
+-		if (debug)
+-			fprintf(stderr, "ptrace_setoptions = %#x\n",
+-				ptrace_setoptions);
+-	}
+-#endif
+-
+ 	/* Valid states here:
+ 	   optind < argc	pflag_seen	outfname	interactive
+ 	   1			0		0		1

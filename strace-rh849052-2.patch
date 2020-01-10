@@ -1,0 +1,71 @@
+This avoids the "preattached child %d of %d in weird state!" problem.
+
+commit 54e931fb858410644f61885b4b36fc20320e1fc6
+Author: Roland McGrath <roland@redhat.com>
+Date:   Tue Sep 14 18:59:20 2010 -0700
+
+    Clean up pid2tcb usage
+    
+    * strace.c (pid2tcb): Always match pid.  Fail for argument <= 0.
+    [USE_PROCFS] (first_used_tcb): New function.
+    [USE_PROCFS] (trace): Use that instead of pid2tcb(0).
+
+diff --git a/strace.c b/strace.c
+index 3cb3758..497b8d1 100644
+--- a/strace.c
++++ b/strace.c
+@@ -1337,25 +1337,38 @@ proc_open(struct tcb *tcp, int attaching)
+ #endif /* USE_PROCFS */
+ 
+ struct tcb *
+-pid2tcb(pid)
+-int pid;
++pid2tcb(int pid)
+ {
+ 	int i;
+-	struct tcb *tcp;
++
++	if (pid <= 0)
++		return NULL;
+ 
+ 	for (i = 0; i < tcbtabsize; i++) {
+-		tcp = tcbtab[i];
+-		if (pid && tcp->pid != pid)
+-			continue;
+-		if (tcp->flags & TCB_INUSE)
++		struct tcb *tcp = tcbtab[i];
++		if (tcp->pid == pid && (tcp->flags & TCB_INUSE))
+ 			return tcp;
+ 	}
++
+ 	return NULL;
+ }
+ 
+ #ifdef USE_PROCFS
+ 
+ static struct tcb *
++first_used_tcb(void)
++{
++	int i;
++	struct tcb *tcp;
++	for (i = 0; i < tcbtabsize; i++) {
++		tcp = tcbtab[i];
++		if (tcp->flags & TCB_INUSE)
++			return tcp;
++	}
++	return NULL;
++}
++
++static struct tcb *
+ pfd2tcb(pfd)
+ int pfd;
+ {
+@@ -1992,7 +2005,7 @@ trace()
+ #ifndef HAVE_POLLABLE_PROCFS
+ 			if (proc_poll_pipe[0] == -1) {
+ #endif
+-				tcp = pid2tcb(0);
++				tcp = first_used_tcb();
+ 				if (!tcp)
+ 					continue;
+ 				pfd = tcp->pfd;

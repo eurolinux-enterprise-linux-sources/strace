@@ -1,0 +1,305 @@
+Index: strace-4.5.19/defs.h
+===================================================================
+--- strace-4.5.19.orig/defs.h
++++ strace-4.5.19/defs.h
+@@ -663,20 +663,6 @@ extern const char *const signalent2[];
+ extern const int nsignals2;
+ #endif /* SUPPORTED_PERSONALITIES >= 3 */
+ 
+-#if defined(FREEBSD) || (defined(LINUX) \
+-			 && defined(POWERPC) && !defined(__powerpc64__)) \
+-  || defined (LINUX_MIPSO32)
+-/* ARRGH!  off_t args are aligned on 64 bit boundaries! */
+-#define ALIGN64(tcp,arg)						\
+-do {									\
+-	if (arg % 2)							\
+-	    memmove (&tcp->u_arg[arg], &tcp->u_arg[arg + 1],		\
+-		     (tcp->u_nargs - arg - 1) * sizeof tcp->u_arg[0]);	\
+-} while (0)
+-#else
+-#define ALIGN64(tcp,arg) do { } while (0)
+-#endif
+-
+ #if HAVE_LONG_LONG
+ 
+ /* _l refers to the lower numbered u_arg,
+@@ -690,6 +676,8 @@ do {									\
+ #define LONG_LONG(_l,_h) \
+     ((long long)((unsigned long long)(unsigned)(_h) | ((unsigned long long)(_l)<<32)))
+ #endif
++
++extern int printllval(struct tcb *, const char *, int);
+ #endif
+ 
+ #ifdef IA64
+Index: strace-4.5.19/file.c
+===================================================================
+--- strace-4.5.19.orig/file.c
++++ strace-4.5.19/file.c
+@@ -610,15 +610,10 @@ int
+ sys_readahead(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		tprintf("%ld, %lld, %ld", tcp->u_arg[0],
+-# if defined LINUX_MIPSN32
+-			tcp->ext_arg[1], tcp->u_arg[2]
+-# elif defined IA64 || defined X86_64 || defined ALPHA || defined LINUX_MIPSN64
+-			(long long int) tcp->u_arg[1], tcp->u_arg[2]
+-# else
+-			LONG_LONG(tcp->u_arg[1], tcp->u_arg[2]), tcp->u_arg[3]
+-# endif
+-		);
++		int argn;
++		tprintf("%ld, ", tcp->u_arg[0]);
++		argn = printllval(tcp, "%lld", 1);
++		tprintf(", %ld", tcp->u_arg[argn]);
+ 	}
+ 	return 0;
+ }
+@@ -629,14 +624,13 @@ int
+ sys_lseek64(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		long long offset;
+-		ALIGN64 (tcp, 1);	/* FreeBSD aligns off_t args */
+-		offset = LONG_LONG(tcp->u_arg [1], tcp->u_arg[2]);
++		int argn;
++		tprintf("%ld, ", tcp->u_arg[0]);
+ 		if (tcp->u_arg[3] == SEEK_SET)
+-			tprintf("%ld, %llu, ", tcp->u_arg[0], offset);
++			argn = printllval(tcp, "%llu, ", 1);
+ 		else
+-			tprintf("%ld, %lld, ", tcp->u_arg[0], offset);
+-		printxval(whence, tcp->u_arg[3], "SEEK_???");
++			argn = printllval(tcp, "%lld, ", 1);
++		printxval(whence, tcp->u_arg[argn], "SEEK_???");
+ 	}
+ 	return RVAL_LUDECIMAL;
+ }
+@@ -659,9 +653,8 @@ int
+ sys_truncate64(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		ALIGN64 (tcp, 1);
+ 		printpath(tcp, tcp->u_arg[0]);
+-		tprintf(", %llu", LONG_LONG(tcp->u_arg[1],tcp->u_arg[2]));
++		printllval(tcp, ", %llu", 1);
+ 	}
+ 	return 0;
+ }
+@@ -683,9 +676,8 @@ int
+ sys_ftruncate64(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		ALIGN64 (tcp, 1);
+-		tprintf("%ld, %llu", tcp->u_arg[0],
+-			LONG_LONG(tcp->u_arg[1] ,tcp->u_arg[2]));
++		tprintf("%ld, ", tcp->u_arg[0]);
++		printllval(tcp, "%llu", 1);
+ 	}
+ 	return 0;
+ }
+@@ -2815,15 +2807,11 @@ int
+ sys_fadvise64(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		tprintf("%ld, %lld, %ld, ",
+-			tcp->u_arg[0],
+-# if defined IA64 || defined X86_64 || defined ALPHA
+-			(long long int) tcp->u_arg[1], tcp->u_arg[2]);
+-		printxval(advise, tcp->u_arg[3], "POSIX_FADV_???");
+-#else
+-			LONG_LONG(tcp->u_arg[1], tcp->u_arg[2]), tcp->u_arg[3]);
+-		printxval(advise, tcp->u_arg[4], "POSIX_FADV_???");
+-#endif
++		int argn;
++		tprintf("%ld, ", tcp->u_arg[0]);
++		argn = printllval(tcp, "%lld", 1);
++		tprintf(", %ld, ", tcp->u_arg[argn++]);
++		printxval(advise, tcp->u_arg[argn], "POSIX_FADV_???");
+ 	}
+ 	return 0;
+ }
+@@ -2834,22 +2822,18 @@ int
+ sys_fadvise64_64(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
+-		tprintf("%ld, %lld, %lld, ",
+-			tcp->u_arg[0],
+-#if defined LINUX_MIPSN32
+-			tcp->ext_arg[1], tcp->ext_arg[2]);
+-		printxval(advise, tcp->u_arg[3], "POSIX_FADV_???");
+-#elif defined IA64 || defined X86_64 || defined ALPHA || defined LINUX_MIPSN64
+-			(long long int) tcp->u_arg[1], (long long int) tcp->u_arg[2]);
+-		printxval(advise, tcp->u_arg[3], "POSIX_FADV_???");
+-#elif defined ARM
+-			LONG_LONG(tcp->u_arg[2], tcp->u_arg[3]),
+-			LONG_LONG(tcp->u_arg[4], tcp->u_arg[5]));
++		int argn;
++		tprintf("%ld, ", tcp->u_arg[0]);
++#if defined ARM || defined POWERPC
++		argn = printllval(tcp, "%lld, ", 2);
++#else
++		argn = printllval(tcp, "%lld, ", 1);
++#endif
++		argn = printllval(tcp, "%lld, ", argn);
++#if defined ARM || defined POWERPC
+ 		printxval(advise, tcp->u_arg[1], "POSIX_FADV_???");
+ #else
+-			LONG_LONG(tcp->u_arg[1], tcp->u_arg[2]),
+-			LONG_LONG(tcp->u_arg[3], tcp->u_arg[4]));
+-		printxval(advise, tcp->u_arg[5], "POSIX_FADV_???");
++		printxval(advise, tcp->u_arg[argn], "POSIX_FADV_???");
+ #endif
+ 	}
+ 	return 0;
+@@ -2904,12 +2888,11 @@ int
+ sys_fallocate(struct tcb *tcp)
+ {
+ 	if (entering(tcp)) {
++		int argn;
+ 		tprintf("%ld, ", tcp->u_arg[0]);	/* fd */
+ 		tprintf("%#lo, ", tcp->u_arg[1]);	/* mode */
+-		tprintf("%llu, ", LONG_LONG(tcp->u_arg[2],
+-			tcp->u_arg[3]));		/* offset */
+-		tprintf("%llu", LONG_LONG(tcp->u_arg[4],
+-			tcp->u_arg[5]));		/* len */
++		argn = printllval(tcp, "%llu, ", 2);	/* offset */
++		printllval(tcp, "%llu", argn);		/* len */
+ 	}
+ 	return 0;
+ }
+Index: strace-4.5.19/io.c
+===================================================================
+--- strace-4.5.19.orig/io.c
++++ strace-4.5.19/io.c
+@@ -286,9 +286,8 @@ struct tcb *tcp;
+ 			tprintf("%#lx", tcp->u_arg[1]);
+ 		else
+ 			printstr(tcp, tcp->u_arg[1], tcp->u_rval);
+-		ALIGN64 (tcp, PREAD_OFFSET_ARG); /* PowerPC alignment restriction */
+-		tprintf(", %lu, %llu", tcp->u_arg[2],
+-			*(unsigned long long *)&tcp->u_arg[PREAD_OFFSET_ARG]);
++		tprintf(", %lu, ", tcp->u_arg[2]);
++		printllval(tcp, "%llu", PREAD_OFFSET_ARG);
+ 	}
+ 	return 0;
+ }
+@@ -300,9 +299,8 @@ struct tcb *tcp;
+ 	if (entering(tcp)) {
+ 		tprintf("%ld, ", tcp->u_arg[0]);
+ 		printstr(tcp, tcp->u_arg[1], tcp->u_arg[2]);
+-		ALIGN64 (tcp, PREAD_OFFSET_ARG); /* PowerPC alignment restriction */
+-		tprintf(", %lu, %llu", tcp->u_arg[2],
+-			*(unsigned long long *)&tcp->u_arg[PREAD_OFFSET_ARG]);
++		tprintf(", %lu, ", tcp->u_arg[2]);
++		printllval(tcp, "%llu", PREAD_OFFSET_ARG);
+ 	}
+ 	return 0;
+ }
+@@ -355,17 +353,12 @@ struct tcb *tcp;
+ 	if (entering(tcp)) {
+ 		tprintf("%ld, ", tcp->u_arg[0]);
+ 	} else {
+-		ALIGN64 (tcp, 3);
+ 		if (syserror(tcp))
+ 			tprintf("%#lx", tcp->u_arg[1]);
+ 		else
+ 			printstr(tcp, tcp->u_arg[1], tcp->u_rval);
+-#ifdef MIPS_LINUXN32
+-		tprintf(", %lu, %#llx", tcp->u_arg[2], tcp->ext_arg[3]);
+-#else
+-		tprintf(", %lu, %#llx", tcp->u_arg[2],
+-			LONG_LONG(tcp->u_arg[3], tcp->u_arg[4]));
+-#endif
++		tprintf(", %lu, ", tcp->u_arg[2]);
++		printllval(tcp, "%#llx", 3);
+ 	}
+ 	return 0;
+ }
+@@ -375,15 +368,10 @@ sys_pwrite64(tcp)
+ struct tcb *tcp;
+ {
+ 	if (entering(tcp)) {
+-		ALIGN64 (tcp, 3);
+ 		tprintf("%ld, ", tcp->u_arg[0]);
+ 		printstr(tcp, tcp->u_arg[1], tcp->u_arg[2]);
+-#ifdef MIPS_LINUXN32
+-		tprintf(", %lu, %#llx", tcp->u_arg[2], tcp->ext_arg[3]);
+-#else
+-		tprintf(", %lu, %#llx", tcp->u_arg[2],
+-			LONG_LONG(tcp->u_arg[3], tcp->u_arg[4]));
+-#endif
++		tprintf(", %lu, ", tcp->u_arg[2]);
++		printllval(tcp, "%#llx", 3);
+ 	}
+ 	return 0;
+ }
+Index: strace-4.5.19/mem.c
+===================================================================
+--- strace-4.5.19.orig/mem.c
++++ strace-4.5.19/mem.c
+@@ -318,7 +318,6 @@ struct tcb *tcp;
+ 			return 0;
+ #endif /* ALPHA */
+ #endif /* linux */
+-		ALIGN64 (tcp, 5);	/* FreeBSD wierdies */
+ 
+ 		/* addr */
+ 		tprintf("%#lx, ", u_arg[0]);
+@@ -337,7 +336,7 @@ struct tcb *tcp;
+ 		/* fd */
+ 		tprintf(", %ld, ", u_arg[4]);
+ 		/* offset */
+-		tprintf("%#llx", LONG_LONG(u_arg[5], u_arg[6]));
++		printllval(tcp, "%#llx", 5);
+ 	}
+ 	return RVAL_HEX;
+ }
+Index: strace-4.5.19/util.c
+===================================================================
+--- strace-4.5.19.orig/util.c
++++ strace-4.5.19/util.c
+@@ -254,6 +254,42 @@ printxval(const struct xlat *xlat, int v
+ 		tprintf("%#x /* %s */", val, dflt);
+ }
+ 
++#if HAVE_LONG_LONG
++/*
++ * Print 64bit argument at position llarg and return the index of the next
++ * argument.
++ */
++int
++printllval(struct tcb *tcp, const char *format, int llarg)
++{
++# if defined(FREEBSD) \
++     || (defined(LINUX) && defined(POWERPC) && !defined(__powerpc64__)) \
++     || defined (LINUX_MIPSO32)
++	/* Align 64bit argument to 64bit boundary.  */
++	if (llarg % 2) llarg++;
++# endif
++# if defined LINUX && defined X86_64
++	if (current_personality == 0) {
++		tprintf(format, tcp->u_arg[llarg]);
++		llarg++;
++	} else {
++		tprintf(format, LONG_LONG(tcp->u_arg[llarg], tcp->u_arg[llarg + 1]));
++		llarg += 2;
++	}
++# elif defined IA64 || defined ALPHA || (defined POWERPC && defined __powerpc64__)
++	tprintf(format, tcp->u_arg[llarg]);
++	llarg++;
++# elif defined LINUX_MIPSN32
++	tprintf(format, tcp->ext_arg[llarg]);
++	llarg++;
++# else
++	tprintf(format, LONG_LONG(tcp->u_arg[llarg], tcp->u_arg[llarg + 1]));
++	llarg += 2;
++# endif
++	return llarg;
++}
++#endif
++
+ /*
+  * Interpret `xlat' as an array of flags
+  * print the entries whose bits are on in `flags'

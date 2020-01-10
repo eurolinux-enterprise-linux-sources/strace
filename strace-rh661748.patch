@@ -1,0 +1,292 @@
+Index: strace-4.5.19/defs.h
+===================================================================
+--- strace-4.5.19.orig/defs.h
++++ strace-4.5.19/defs.h
+@@ -344,12 +344,9 @@ struct tcb {
+ 				/* Support for tracing forked processes */
+ 	struct tcb *parent;	/* Parent of this process */
+ 	int nchildren;		/* # of traced children */
+-	int waitpid;		/* pid(s) this process is waiting for */
+-	int nzombies;		/* # of formerly traced children now dead */
+ #ifdef LINUX
+ 	int nclone_threads;	/* # of nchildren with CLONE_THREAD */
+ 	int nclone_detached;	/* # of nchildren with CLONE_DETACHED */
+-	int nclone_waiting;	/* clone threads in wait4 (TCB_SUSPENDED) */
+ #endif
+ 				/* (1st arg of wait4()) */
+ 	long baddr;		/* `Breakpoint' address */
+Index: strace-4.5.19/process.c
+===================================================================
+--- strace-4.5.19.orig/process.c
++++ strace-4.5.19/process.c
+@@ -2051,95 +2051,6 @@ printwaitn(struct tcb *tcp, int n, int b
+ 	return 0;
+ }
+ 
+-int
+-internal_wait(tcp, flagarg)
+-struct tcb *tcp;
+-int flagarg;
+-{
+-	int got_kids;
+-
+-#ifdef TCB_CLONE_THREAD
+-	if (tcp->flags & TCB_CLONE_THREAD)
+-		/* The children we wait for are our parent's children.  */
+-		got_kids = (tcp->parent->nchildren
+-			    > tcp->parent->nclone_detached);
+-	else
+-		got_kids = (tcp->nchildren > tcp->nclone_detached);
+-#else
+-	got_kids = tcp->nchildren > 0;
+-#endif
+-
+-	if (entering(tcp) && got_kids) {
+-		/* There are children that this parent should block for.
+-		   But ptrace made us the parent of the traced children
+-		   and the real parent will get ECHILD from the wait call.
+-
+-		   XXX If we attached with strace -f -p PID, then there
+-		   may be untraced dead children the parent could be reaping
+-		   now, but we make him block.  */
+-
+-		/* ??? WTA: fix bug with hanging children */
+-
+-		if (!(tcp->u_arg[flagarg] & WNOHANG)) {
+-			/*
+-			 * There are traced children.  We'll make the parent
+-			 * block to avoid a false ECHILD error due to our
+-			 * ptrace having stolen the children.  However,
+-			 * we shouldn't block if there are zombies to reap.
+-			 * XXX doesn't handle pgrp matches (u_arg[0]==0,<-1)
+-			 */
+-			struct tcb *child = NULL;
+-			if (tcp->nzombies > 0 &&
+-			    (tcp->u_arg[0] == -1 ||
+-			     (child = pid2tcb(tcp->u_arg[0])) == NULL))
+-				return 0;
+-			if (tcp->u_arg[0] > 0) {
+-				/*
+-				 * If the parent waits for a specified child
+-				 * PID, then it must get ECHILD right away
+-				 * if that PID is not one of its children.
+-				 * Make sure that the requested PID matches
+-				 * one of the parent's children that we are
+-				 * tracing, and don't suspend it otherwise.
+-				 */
+-				if (child == NULL)
+-					child = pid2tcb(tcp->u_arg[0]);
+-				if (child == NULL || child->parent != (
+-#ifdef TCB_CLONE_THREAD
+-					    (tcp->flags & TCB_CLONE_THREAD)
+-					    ? tcp->parent :
+-#endif
+-					    tcp) ||
+-				    (child->flags & TCB_EXITING))
+-					return 0;
+-			}
+-			tcp->flags |= TCB_SUSPENDED;
+-			tcp->waitpid = tcp->u_arg[0];
+-#ifdef TCB_CLONE_THREAD
+-			if (tcp->flags & TCB_CLONE_THREAD)
+-				tcp->parent->nclone_waiting++;
+-#endif
+-		}
+-	}
+-	if (exiting(tcp) && tcp->u_error == ECHILD && got_kids) {
+-		if (tcp->u_arg[flagarg] & WNOHANG) {
+-			/* We must force a fake result of 0 instead of
+-			   the ECHILD error.  */
+-			extern int force_result();
+-			return force_result(tcp, 0, 0);
+-		}
+-	}
+-	else if (exiting(tcp) && tcp->u_error == 0 && tcp->u_rval > 0 &&
+-		 tcp->nzombies > 0 && pid2tcb(tcp->u_rval) == NULL) {
+-		/*
+-		 * We just reaped a child we don't know about,
+-		 * presumably a zombie we already droptcb'd.
+-		 */
+-		tcp->nzombies--;
+-	}
+-	return 0;
+-}
+-
+ #ifdef SVR4
+ 
+ int
+Index: strace-4.5.19/strace.c
+===================================================================
+--- strace-4.5.19.orig/strace.c
++++ strace-4.5.19/strace.c
+@@ -1008,10 +1008,8 @@ alloc_tcb(int pid, int command_options_p
+ 			tcp->pid = pid;
+ 			tcp->parent = NULL;
+ 			tcp->nchildren = 0;
+-			tcp->nzombies = 0;
+ #ifdef TCB_CLONE_THREAD
+ 			tcp->nclone_threads = tcp->nclone_detached = 0;
+-			tcp->nclone_waiting = 0;
+ #endif
+ 			tcp->flags = TCB_INUSE | TCB_STARTUP;
+ 			tcp->outf = outf; /* Initialise to current out file */
+@@ -1449,10 +1447,6 @@ struct tcb *tcp;
+ 		if (tcp->flags & TCB_CLONE_THREAD)
+ 			tcp->parent->nclone_threads--;
+ #endif
+-#ifdef TCB_CLONE_DETACHED
+-		if (!(tcp->flags & TCB_CLONE_DETACHED))
+-#endif
+-			tcp->parent->nzombies++;
+ #ifdef LINUX
+ 		/* Update `tcp->parent->parent->nchildren' and the other fields
+ 		   like NCLONE_DETACHED, only for zombie group leader that has
+@@ -1491,100 +1485,6 @@ struct tcb *tcp;
+ 	tcp->outf = 0;
+ }
+ 
+-#ifndef USE_PROCFS
+-
+-static int
+-resume(tcp)
+-struct tcb *tcp;
+-{
+-	if (tcp == NULL)
+-		return -1;
+-
+-	if (!(tcp->flags & TCB_SUSPENDED)) {
+-		fprintf(stderr, "PANIC: pid %u not suspended\n", tcp->pid);
+-		return -1;
+-	}
+-	tcp->flags &= ~TCB_SUSPENDED;
+-#ifdef TCB_CLONE_THREAD
+-	if (tcp->flags & TCB_CLONE_THREAD)
+-		tcp->parent->nclone_waiting--;
+-#endif
+-
+-	if (ptrace_restart(PTRACE_SYSCALL, tcp, 0) < 0)
+-		return -1;
+-
+-	if (!qflag)
+-		fprintf(stderr, "Process %u resumed\n", tcp->pid);
+-	return 0;
+-}
+-
+-static int
+-resume_from_tcp (struct tcb *tcp)
+-{
+-	int error = 0;
+-	int resumed = 0;
+-
+-	/* XXX This won't always be quite right (but it never was).
+-	   A waiter with argument 0 or < -1 is waiting for any pid in
+-	   a particular pgrp, which this child might or might not be
+-	   in.  The waiter will only wake up if it's argument is -1
+-	   or if it's waiting for tcp->pid's pgrp.  It makes a
+-	   difference to wake up a waiter when there might be more
+-	   traced children, because it could get a false ECHILD
+-	   error.  OTOH, if this was the last child in the pgrp, then
+-	   it ought to wake up and get ECHILD.  We would have to
+-	   search the system for all pid's in the pgrp to be sure.
+-
+-	     && (t->waitpid == -1 ||
+-		 (t->waitpid == 0 && getpgid (tcp->pid) == getpgid (t->pid))
+-		 || (t->waitpid < 0 && t->waitpid == -getpid (t->pid)))
+-	*/
+-
+-	if (tcp->parent &&
+-	    (tcp->parent->flags & TCB_SUSPENDED) &&
+-	    (tcp->parent->waitpid <= 0 || tcp->parent->waitpid == tcp->pid)) {
+-		error = resume(tcp->parent);
+-		++resumed;
+-	}
+-#ifdef TCB_CLONE_THREAD
+-	if (tcp->parent && tcp->parent->nclone_waiting > 0) {
+-		/* Some other threads of our parent are waiting too.  */
+-		unsigned int i;
+-
+-		/* Resume all the threads that were waiting for this PID.  */
+-		for (i = 0; i < tcbtabsize; i++) {
+-			struct tcb *t = tcbtab[i];
+-			if (t->parent == tcp->parent && t != tcp
+-			    && ((t->flags & (TCB_CLONE_THREAD|TCB_SUSPENDED))
+-				== (TCB_CLONE_THREAD|TCB_SUSPENDED))
+-			    && t->waitpid == tcp->pid) {
+-				error |= resume (t);
+-				++resumed;
+-			}
+-		}
+-		if (resumed == 0)
+-			/* Noone was waiting for this PID in particular,
+-			   so now we might need to resume some wildcarders.  */
+-			for (i = 0; i < tcbtabsize; i++) {
+-				struct tcb *t = tcbtab[i];
+-				if (t->parent == tcp->parent && t != tcp
+-				    && ((t->flags
+-					 & (TCB_CLONE_THREAD|TCB_SUSPENDED))
+-					== (TCB_CLONE_THREAD|TCB_SUSPENDED))
+-				    && t->waitpid <= 0
+-					) {
+-					error |= resume (t);
+-					break;
+-				}
+-			}
+-	}
+-#endif
+-
+-	return error;
+-}
+-
+-#endif /* !USE_PROCFS */
+-
+ /* detach traced process; continue with sig
+    Never call DETACH twice on the same process as both unattached and
+    attached-unstopped processes give the same ESRCH.  For unattached process we
+@@ -1703,10 +1603,6 @@ int sig;
+ 	error = ptrace_restart(PTRACE_DETACH, tcp, sig);
+ #endif /* SUNOS4 */
+ 
+-#ifndef USE_PROCFS
+-	error |= resume_from_tcp (tcp);
+-#endif
+-
+ 	if (!qflag)
+ 		fprintf(stderr, "Process %u detached\n", tcp->pid);
+ 
+@@ -2296,9 +2192,6 @@ handle_group_exit(struct tcb *tcp, int s
+ 				tcp->pid, leader ? leader->pid : -1);
+ 		}
+ 		/* TCP no longer exists therefore you must not detach() it.  */
+-#ifndef USE_PROCFS
+-		resume_from_tcp(tcp);
+-#endif
+ 		droptcb(tcp);	/* Already died.  */
+ 	}
+ 	else {
+Index: strace-4.5.19/syscall.c
+===================================================================
+--- strace-4.5.19.orig/syscall.c
++++ strace-4.5.19/syscall.c
+@@ -700,22 +700,6 @@ internal_syscall(struct tcb *tcp)
+ 	   )
+ 		return internal_exec(tcp);
+ 
+-	if (   sys_waitpid == func
+-	    || sys_wait4 == func
+-#if defined(SVR4) || defined(FREEBSD) || defined(SUNOS4)
+-	    || sys_wait == func
+-#endif
+-#ifdef ALPHA
+-	    || sys_osf_wait4 == func
+-#endif
+-	   )
+-		return internal_wait(tcp, 2);
+-
+-#if defined(LINUX) || defined(SVR4)
+-	if (sys_waitid == func)
+-		return internal_wait(tcp, 3);
+-#endif
+-
+ 	return 0;
+ }
+ 

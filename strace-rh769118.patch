@@ -1,0 +1,64 @@
+Only in b: .syscall.c.rej.swp
+diff -rup a/defs.h b/defs.h
+--- a/defs.h	2011-12-22 19:48:13.624901485 +0000
++++ b/defs.h	2011-12-22 19:48:24.256904140 +0000
+@@ -326,6 +326,7 @@ struct tcb {
+ 	struct tcb *next_need_service;
+ 				/* Linked list of tracees found by wait()s */
+ 	long scno;		/* System call number */
++	int currpers;		/* personality when scno was polled */
+ 	int u_nargs;		/* System call arguments */
+ 	long u_arg[MAX_ARGS];	/* System call arguments */
+ #if defined (LINUX_MIPSN32)
+Only in b: defs.h.orig
+diff -rup a/syscall.c b/syscall.c
+--- a/syscall.c	2011-12-22 19:48:13.615901483 +0000
++++ b/syscall.c	2011-12-22 19:51:38.335952770 +0000
+@@ -899,7 +899,6 @@ get_scno(struct tcb *tcp)
+ 		return -1;
+ 
+ 	if (!(tcp->flags & TCB_INSYSCALL)) {
+-		static int currpers = -1;
+ 		long val;
+ 		int pid = tcp->pid;
+ 
+@@ -912,13 +911,12 @@ get_scno(struct tcb *tcp)
+ 		if (upeek(tcp, 8*CS, &val) < 0)
+ 			return -1;
+ 		switch (val) {
+-			case 0x23: currpers = 1; break;
+-			case 0x33: currpers = 0; break;
++			case 0x23: tcp->currpers = 1; break;
++			case 0x33: tcp->currpers = 0; break;
+ 			default:
+ 				fprintf(stderr, "Unknown value CS=0x%02X while "
+ 					 "detecting personality of process "
+ 					 "PID=%d\n", (int)val, pid);
+-				currpers = current_personality;
+ 				break;
+ 		}
+ #  if 0
+@@ -953,13 +951,15 @@ get_scno(struct tcb *tcp)
+ 				break;
+ 		}
+ #  endif
+-		if (currpers != current_personality) {
+-			static const char *const names[] = {"64 bit", "32 bit"};
+-			set_personality(currpers);
+-			printf("[ Process PID=%d runs in %s mode. ]\n",
+-					pid, names[current_personality]);
+-		}
+ 	}
++
++	if (tcp->currpers != current_personality) {
++		static const char *const names[] = {"64 bit", "32 bit"};
++		set_personality(tcp->currpers);
++		fprintf(stderr, "[ Process PID=%d runs in %s mode. ]\n",
++			tcp->pid, names[current_personality]);
++	}
++
+ # elif defined(IA64)
+ #	define IA64_PSR_IS	((long)1 << 34)
+ 	if (upeek (tcp, PT_CR_IPSR, &psr) >= 0)
+Only in b: syscall.c.orig
+Only in b: syscall.c.rej
