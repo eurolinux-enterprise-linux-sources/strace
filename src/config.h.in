@@ -1,5 +1,11 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define for the AArch64 architecture. */
+#undef AARCH64
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
 /* Define for the Alpha architecture. */
 #undef ALPHA
 
@@ -18,9 +24,6 @@
 /* Define for the CRISv32 architecture. */
 #undef CRISV32
 
-/* Define for the FreeBSD operating system. */
-#undef FREEBSD
-
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
@@ -33,6 +36,85 @@
 
 /* Define to 1 if you have the <asm/sysmips.h> header file. */
 #undef HAVE_ASM_SYSMIPS_H
+
+/* Define to 1 if you have BLKGETSIZE64. */
+#undef HAVE_BLKGETSIZE64
+
+/* Define to 1 if you have the declaration of `IO_CMD_PWRITE', and to 0 if you
+   don't. */
+#undef HAVE_DECL_IO_CMD_PWRITE
+
+/* Define to 1 if you have the declaration of `IO_CMD_PWRITEV', and to 0 if
+   you don't. */
+#undef HAVE_DECL_IO_CMD_PWRITEV
+
+/* Define to 1 if you have the declaration of `LO_FLAGS_AUTOCLEAR', and to 0
+   if you don't. */
+#undef HAVE_DECL_LO_FLAGS_AUTOCLEAR
+
+/* Define to 1 if you have the declaration of `LO_FLAGS_PARTSCAN', and to 0 if
+   you don't. */
+#undef HAVE_DECL_LO_FLAGS_PARTSCAN
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_CLONE', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_CLONE
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_EXEC', and to 0 if
+   you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_EXEC
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_EXIT', and to 0 if
+   you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_EXIT
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_FORK', and to 0 if
+   you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_FORK
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_VFORK', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_VFORK
+
+/* Define to 1 if you have the declaration of `PTRACE_EVENT_VFORK_DONE', and
+   to 0 if you don't. */
+#undef HAVE_DECL_PTRACE_EVENT_VFORK_DONE
+
+/* Define to 1 if you have the declaration of `PTRACE_GETEVENTMSG', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_GETEVENTMSG
+
+/* Define to 1 if you have the declaration of `PTRACE_GETSIGINFO', and to 0 if
+   you don't. */
+#undef HAVE_DECL_PTRACE_GETSIGINFO
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACECLONE', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACECLONE
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACEEXEC', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACEEXEC
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACEEXIT', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACEEXIT
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACEFORK', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACEFORK
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACESYSGOOD', and to
+   0 if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACESYSGOOD
+
+/* Define to 1 if you have the declaration of `PTRACE_O_TRACEVFORK', and to 0
+   if you don't. */
+#undef HAVE_DECL_PTRACE_O_TRACEVFORK
+
+/* Define to 1 if you have the declaration of `PTRACE_SETOPTIONS', and to 0 if
+   you don't. */
+#undef HAVE_DECL_PTRACE_SETOPTIONS
 
 /* Define to 1 if you have the declaration of `sys_errlist', and to 0 if you
    don't. */
@@ -50,11 +132,11 @@
    */
 #undef HAVE_DIRENT_H
 
+/* Define to 1 if you have the <elf.h> header file. */
+#undef HAVE_ELF_H
+
 /* Define to 1 if you have the `fork' function. */
 #undef HAVE_FORK
-
-/* Define to 1 if you have the `getdents' function. */
-#undef HAVE_GETDENTS
 
 /* Define to 1 if you have the `if_indextoname' function. */
 #undef HAVE_IF_INDEXTONAME
@@ -71,9 +153,6 @@
 /* Define to 1 if you have the <libaio.h> header file. */
 #undef HAVE_LIBAIO_H
 
-/* Define to 1 if you have the `nsl' library (-lnsl). */
-#undef HAVE_LIBNSL
-
 /* Define to 1 if you have the <linux/capability.h> header file. */
 #undef HAVE_LINUX_CAPABILITY_H
 
@@ -88,6 +167,9 @@
 
 /* Define to 1 if you have the <linux/netlink.h> header file. */
 #undef HAVE_LINUX_NETLINK_H
+
+/* Define to 1 if you have the <linux/perf_event.h> header file. */
+#undef HAVE_LINUX_PERF_EVENT_H
 
 /* Define to 1 if you have the <linux/ptrace.h> header file. */
 #undef HAVE_LINUX_PTRACE_H
@@ -104,19 +186,8 @@
 /* Define if off_t is a long long. */
 #undef HAVE_LONG_LONG_OFF_T
 
-/* Define if rlim_t is a long long. */
-#undef HAVE_LONG_LONG_RLIM_T
-
-/* Define to 1 if you have the `mctl' function. */
-#undef HAVE_MCTL
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
-
-/* Define if you have a SVR4 MP type procfs. I.E. /dev/xxx/ctl,
-   /dev/xxx/status. Also implies that you have the pr_lwp member in prstatus.
-   */
-#undef HAVE_MP_PROCFS
 
 /* Define to 1 if you have the <mqueue.h> header file. */
 #undef HAVE_MQUEUE_H
@@ -124,14 +195,14 @@
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
 
+/* Define to 1 if you have the <netinet/sctp.h> header file. */
+#undef HAVE_NETINET_SCTP_H
+
 /* Define to 1 if you have the <netinet/tcp.h> header file. */
 #undef HAVE_NETINET_TCP_H
 
 /* Define to 1 if you have the <netinet/udp.h> header file. */
 #undef HAVE_NETINET_UDP_H
-
-/* Define if you have SVR4 and the poll system call works on /proc files. */
-#undef HAVE_POLLABLE_PROCFS
 
 /* Define to 1 if you have the <poll.h> header file. */
 #undef HAVE_POLL_H
@@ -139,12 +210,8 @@
 /* Define to 1 if you have the `prctl' function. */
 #undef HAVE_PRCTL
 
-/* Define to 1 if you have the `pread' function. */
-#undef HAVE_PREAD
-
-/* Define if the prstatus structure in sys/procfs.h has a pr_syscall member.
-   */
-#undef HAVE_PR_SYSCALL
+/* Define to 1 if you have the `process_vm_readv' function. */
+#undef HAVE_PROCESS_VM_READV
 
 /* Define to 1 if you have the `sendmsg' function. */
 #undef HAVE_SENDMSG
@@ -161,6 +228,9 @@
 /* Define if stat64 is available in asm/stat.h. */
 #undef HAVE_STAT64
 
+/* Define if statfs64 is available in sys/vfs.h. */
+#undef HAVE_STATFS64
+
 /* Define to 1 if stdbool.h conforms to C99. */
 #undef HAVE_STDBOOL_H
 
@@ -169,6 +239,9 @@
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `stpcpy' function. */
+#undef HAVE_STPCPY
 
 /* Define to 1 if you have the `strerror' function. */
 #undef HAVE_STRERROR
@@ -185,13 +258,16 @@
 /* Define to 1 if you have the `strsignal' function. */
 #undef HAVE_STRSIGNAL
 
-/* Define to 1 if `struct dqblk' is a member of `dqb_curblocks'. */
+/* Define to 1 if `dqb_curblocks' is a member of `struct dqblk'. */
 #undef HAVE_STRUCT_DQBLK_DQB_CURBLOCKS
 
 /* Define to 1 if the system has the type `struct ia64_fpreg'. */
 #undef HAVE_STRUCT_IA64_FPREG
 
-/* Define to 1 if `struct msghdr' is a member of `msg_control'. */
+/* Define to 1 if `u.c.flags' is a member of `struct iocb'. */
+#undef HAVE_STRUCT_IOCB_U_C_FLAGS
+
+/* Define to 1 if `msg_control' is a member of `struct msghdr'. */
 #undef HAVE_STRUCT_MSGHDR_MSG_CONTROL
 
 /* Define to 1 if the system has the type `struct opthdr'. */
@@ -203,43 +279,43 @@
 /* Define to 1 if the system has the type `struct sigcontext'. */
 #undef HAVE_STRUCT_SIGCONTEXT
 
-/* Define to 1 if `struct sigcontext' is a member of `sc_hi2'. */
+/* Define to 1 if `sc_hi2' is a member of `struct sigcontext'. */
 #undef HAVE_STRUCT_SIGCONTEXT_SC_HI2
 
 /* Define to 1 if the system has the type `struct sigcontext_struct'. */
 #undef HAVE_STRUCT_SIGCONTEXT_STRUCT
 
-/* Define to 1 if `struct sockaddr_in6' is a member of `sin6_scope_id'. */
+/* Define to 1 if `sin6_scope_id' is a member of `struct sockaddr_in6'. */
 #undef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 
-/* Define to 1 if `struct stat' is a member of `st_aclcnt'. */
+/* Define to 1 if `st_aclcnt' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ACLCNT
 
-/* Define to 1 if `struct stat' is a member of `st_blksize'. */
+/* Define to 1 if `st_blksize' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLKSIZE
 
-/* Define to 1 if `struct stat' is a member of `st_blocks'. */
+/* Define to 1 if `st_blocks' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLOCKS
 
-/* Define to 1 if `struct stat' is a member of `st_flags'. */
+/* Define to 1 if `st_flags' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_FLAGS
 
-/* Define to 1 if `struct stat' is a member of `st_fstype'. */
+/* Define to 1 if `st_fstype' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_FSTYPE
 
-/* Define to 1 if `struct stat' is a member of `st_gen'. */
+/* Define to 1 if `st_gen' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_GEN
 
-/* Define to 1 if `struct stat' is a member of `st_level'. */
+/* Define to 1 if `st_level' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_LEVEL
 
-/* Define to 1 if `struct stat' is a member of `st_rdev'. */
+/* Define to 1 if `st_rdev' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_RDEV
 
-/* Define to 1 if `struct T_conn_res' is a member of `ACCEPTOR_id'. */
+/* Define to 1 if `ACCEPTOR_id' is a member of `struct T_conn_res'. */
 #undef HAVE_STRUCT_T_CONN_RES_ACCEPTOR_ID
 
-/* Define to 1 if `struct T_conn_res' is a member of `QUEUE_ptr'. */
+/* Define to 1 if `QUEUE_ptr' is a member of `struct T_conn_res'. */
 #undef HAVE_STRUCT_T_CONN_RES_QUEUE_PTR
 
 /* Define to 1 if the system has the type `struct t_opthdr'. */
@@ -248,14 +324,14 @@
 /* Define to 1 if the system has the type `struct user_desc'. */
 #undef HAVE_STRUCT_USER_DESC
 
+/* Define to 1 if `domainname' is a member of `struct utsname'. */
+#undef HAVE_STRUCT_UTSNAME_DOMAINNAME
+
 /* Define to 1 if the system has the type `struct __old_kernel_stat'. */
 #undef HAVE_STRUCT___OLD_KERNEL_STAT
 
 /* Define to 1 if you have the <sys/acl.h> header file. */
 #undef HAVE_SYS_ACL_H
-
-/* Define to 1 if you have the <sys/aio.h> header file. */
-#undef HAVE_SYS_AIO_H
 
 /* Define to 1 if you have the <sys/asynch.h> header file. */
 #undef HAVE_SYS_ASYNCH_H
@@ -266,9 +342,6 @@
 /* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
    */
 #undef HAVE_SYS_DIR_H
-
-/* Define to 1 if you have the <sys/door.h> header file. */
-#undef HAVE_SYS_DOOR_H
 
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #undef HAVE_SYS_EPOLL_H
@@ -282,9 +355,6 @@
 /* Define to 1 if you have the <sys/ndir.h> header file, and it defines `DIR'.
    */
 #undef HAVE_SYS_NDIR_H
-
-/* Define to 1 if you have the <sys/nscsys.h> header file. */
-#undef HAVE_SYS_NSCSYS_H
 
 /* Define to 1 if you have the <sys/poll.h> header file. */
 #undef HAVE_SYS_POLL_H
@@ -301,18 +371,6 @@
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
-/* Define to 1 if you have the <sys/stream.h> header file. */
-#undef HAVE_SYS_STREAM_H
-
-/* Define to 1 if you have the <sys/sysconfig.h> header file. */
-#undef HAVE_SYS_SYSCONFIG_H
-
-/* Define to 1 if you have the <sys/tihdr.h> header file. */
-#undef HAVE_SYS_TIHDR_H
-
-/* Define to 1 if you have the <sys/tiuser.h> header file. */
-#undef HAVE_SYS_TIUSER_H
-
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
@@ -321,9 +379,6 @@
 
 /* Define to 1 if you have the <sys/vfs.h> header file. */
 #undef HAVE_SYS_VFS_H
-
-/* Define to 1 if you have the <termio.h> header file. */
-#undef HAVE_TERMIO_H
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
@@ -343,9 +398,6 @@
 /* Define for the IA64 architecture. */
 #undef IA64
 
-/* Define for the Linux operating system. */
-#undef LINUX
-
 /* Define for the m68k architecture. */
 #undef M68K
 
@@ -357,8 +409,17 @@
    <sysmacros.h>. */
 #undef MAJOR_IN_SYSMACROS
 
+/* Define for the Meta architecture. */
+#undef METAG
+
+/* Define for the MicroBlaze architecture. */
+#undef MICROBLAZE
+
 /* Define for the MIPS architecture. */
 #undef MIPS
+
+/* Define for the OpenRISC 1000 architecture. */
+#undef OR1K
 
 /* Name of package */
 #undef PACKAGE
@@ -384,6 +445,9 @@
 /* Define for the PowerPC architecture. */
 #undef POWERPC
 
+/* Define for the PowerPC64 architecture. */
+#undef POWERPC64
+
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
@@ -399,6 +463,15 @@
 /* Define for the SH64 architecture. */
 #undef SH64
 
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* The size of `rlim_t', as computed by sizeof. */
+#undef SIZEOF_RLIM_T
+
 /* Define for the SPARC architecture. */
 #undef SPARC
 
@@ -411,21 +484,8 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Define for the SunOS 4.x operating system. */
-#undef SUNOS4
-
-/* Define if you are have a SPARC with SUNOS4 and your want a version of
-   strace that will work on sun4, sun4c and sun4m kernel architectures. Only
-   useful if you have a symbolic link from machine to /usr/include/sun4 in the
-   compilation directory. */
-#undef SUNOS4_KERNEL_ARCH_KLUDGE
-
-/* Define for the System V release 4 operating system or a derivative like
-   Solaris 2.x or Irix 5.x. */
-#undef SVR4
-
-/* Define for UnixWare systems. */
-#undef UNIXWARE
+/* Define for the Tile architecture */
+#undef TILE
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE
@@ -452,8 +512,26 @@
 /* Version number of package */
 #undef VERSION
 
-/* Define for the AMD x86-64 architecture. */
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* Define for the 32bit AMD x86-64 architecture. */
+#undef X32
+
+/* Define for the 64bit AMD x86-64 architecture. */
 #undef X86_64
+
+/* Define for the Xtensa architecture */
+#undef XTENSA
 
 /* Define to 1 if on MINIX. */
 #undef _MINIX

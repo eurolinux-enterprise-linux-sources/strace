@@ -1,3 +1,90 @@
+strace (4.8-1) experimental; urgency=low
+
+  * New upstream version.
+    + Added aarch64 support, closes: #693074
+    + Fixed kernel release string parsing, closes: #702309
+
+ -- Dmitry V. Levin <ldv@altlinux.org>  Mon, 03 Jun 2013 15:16:17 +0000
+
+strace (4.7-1) experimental; urgency=low
+
+  [ Dmitry V. Levin ]
+  * New upstream version.
+    + Fixed sockaddr_un.sun_path name in decoded output, closes: #554946
+    + Avoid potential core file clobbering on exit, closes: #656398
+    + Fixed a typo in documentation, closes: #653309
+
+ -- Frederik Schüler <fs@debian.org>  Tue, 12 Feb 2013 10:35:22 +0100
+
+strace (4.6-1) unstable; urgency=low
+
+  * New upstream version.
+    + Added HDIO_* ioctl names, closes: #450953
+    + Fixed stat64 decoding on mips, closes: #599028
+    + Fixed misleading italics in the manual page, closes: #589323
+
+ -- Dmitry V. Levin <ldv@altlinux.org>  Mon, 14 Mar 2011 15:16:17 +0000
+
+strace (4.5.20-2.3) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add sh4 to arch list.
+  * Add powerpcspe to arch list (Closes: #579842).
+
+ -- Nobuhiro Iwamatsu <iwamatsu@debian.org>  Tue, 22 Mar 2011 09:03:49 +0900
+
+strace (4.5.20-2.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add sh4 to arch list (Closes: #537105).
+
+ -- Nobuhiro Iwamatsu <iwamatsu@debian.org>  Wed, 09 Mar 2011 09:22:01 +0900
+
+strace (4.5.20-2.1) unstable; urgency=low
+
+  * NMU, added armhf support. (Closes: #596960)
+
+ -- Konstantinos Margaritis <markos@debian.org>  Thu, 24 Feb 2011 14:47:54 +0000
+
+strace (4.5.20-2) unstable; urgency=low
+
+  * Add missing sparc syscall defines to fix FTBFS on sparc.
+
+ -- Frederik Schüler <fs@debian.org>  Tue, 04 May 2010 14:31:46 +0200
+
+strace (4.5.20-1) unstable; urgency=low
+
+  [ Dmitry V. Levin ]
+  * New upstream version.
+    + Corrected decoding of 64bit syscalls, closes: #570603
+    + Corrected getsockopt decoding on architectures where
+      sizeof(long) > sizeof(int), closes: #494844
+    + Corrected decoding of epoll_pwait, closes: #513014
+    + Implemented -C option to combine regular and -c output, closes: #466196
+
+  [ Frederik Schüler ]
+  * Update standards-version to 3.8.4.
+  * debian/rules: allow parallel building.
+  * debian/rules: comment out verbose build, only needed for debugging.
+  * debian/rules: clean up clean: target, dh_clean does most of the work
+    already.
+  * debian/rules: use *-stamp instead of stamp-*, so dh_clean can tidy
+    up for us.
+
+ -- Frederik Schüler <fs@debian.org>  Tue, 13 Apr 2010 13:02:57 +0200
+
+strace (4.5.19-2) unstable; urgency=low
+
+  * Add sparc64 to the architectures list, closes: #560062
+  * Fix FTBFS, thanks to Aurelien Jarno <aurelien@aurel32.net> for pointing
+    out the solution. Closes: #560516
+  * Rebuild as normal package, closes: #566968
+  * Update standards-version to 3.8.3.
+  * Lower package priority to optional, matching the archive override.
+  * Add watch file.
+
+ -- Frederik Schüler <fs@debian.org>  Tue, 26 Jan 2010 12:20:51 +0100
+
 strace (4.5.19-1) unstable; urgency=low
 
   [ Dmitry V. Levin ]
@@ -5,6 +92,7 @@ strace (4.5.19-1) unstable; urgency=low
     + Fixed FTBFS on armel, closes: #520084, #535564
     + Marked sendfile(2) as a network syscall, closes: #509499
     + Fixed syscall numbers for tee and sync_file_range, closes: #503124
+    + Corrected accept(2) decoding, closes: #507573
     + Changed strace to exit/kill with traced process
       exitcode/signal, closes: #37665
 

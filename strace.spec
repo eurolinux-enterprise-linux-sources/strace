@@ -1,39 +1,28 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 4.5.19
-Release: 1.19%{?dist}
+Version: 4.8
+Release: 10%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
-Source0: http://dl.sourceforge.net/strace/%{name}-%{version}.tar.bz2
-Patch0: linux-netlink-h.patch
-Patch1: strace-rh545451.patch
-Patch2: strace-rh558765.patch
-Patch3: strace-rh561805.patch
-Patch4: strace-rh526740.patch
-Patch5: strace-rh533199.patch
-Patch6: strace-rh661748.patch
-Patch7: strace-rh642389.patch
-Patch8: strace-rh654515.patch
-Patch9: strace-rh769118.patch
-Patch10: strace-rh759569.patch
-Patch11: strace-rh837183.patch
-Patch12: strace-rh837183-2.patch
-Patch13: strace-rh837183-3.patch
-Patch14: strace-rh837183-4.patch
-Patch15: strace-rh837183-5.patch
-Patch16: strace-rh837183-6.patch
-Patch17: strace-rh862321.patch
-Patch18: strace-rh921548.patch
-Patch19: strace-rh1044605.patch
-Patch20: strace-rh862321-2.patch
-
+Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires: libaio-devel, libacl-devel
 
-# In the past we had a separate strace64 package, these days the 
-# standard 64 bit build provides that functionality.  For tracing
-# 32 bit applications we still have strace32 
+BuildRequires: libacl-devel, libaio-devel, time
+
+Patch1000: strace-strict-aliasing.patch
+Patch1001: strace-rh948577.patch
+Patch1002: strace-rh851457.patch
+Patch1003: strace-rh971352.patch
+Patch1004: strace-rh1044044.patch
+Patch1005: strace-4.8-ppc64.patch
+Patch1006: strace-rh1129572.patch
+Patch1007: strace-rh1214041.patch
+
+
+# In the past we had a separate strace64 package, these days the
+# stndard 64 bit build provides that functionality.  For tracing
+# 32 bit applications on ppc and s390 we still have strace32
 Obsoletes: strace64
 
 %define strace32_arches ppc s390
@@ -69,27 +58,14 @@ This package provides the `strace32' program to trace 32-bit processes on
 
 %prep
 %setup -q
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
-%patch8 -p1
-%patch9 -p1
-%patch10 -p1
-%patch11 -p1
-%patch12 -p1
-%patch13 -p1
-%patch14 -p1
-%patch15 -p1
-%patch16 -p1
-%patch17 -p1
-%patch18 -p1
-%patch19 -p1
-%patch20 -p1
+%patch1000 -p1
+%patch1001 -p1
+%patch1002 -p1
+%patch1003 -p1
+%patch1004 -p1
+%patch1005 -p1
+%patch1006 -p1
+%patch1007 -p1
 
 %build
 %configure
@@ -104,6 +80,8 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 
 %define copy64 ln
 %if 0%{?rhel}
+%if 0%{?rhel} < 6
+%endif
 %define copy64 cp -p
 %endif
 
@@ -111,13 +89,17 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %{copy64} %{buildroot}%{_bindir}/strace %{buildroot}%{_bindir}/strace32
 %endif
 
+%check
+make check
+
 %clean
 rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%doc CREDITS ChangeLog ChangeLog-CVS COPYRIGHT NEWS PORTING README
+%doc CREDITS ChangeLog ChangeLog-CVS COPYING NEWS README
 %{_bindir}/strace
+%{_bindir}/strace-log-merge
 %{_mandir}/man1/*
 
 %ifarch %{strace32_arches}
@@ -127,68 +109,74 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Thu Jul 4 2014 Jeff Law <law@redhat.com> - 4.5.19-1.19
-- More fixes for getsockopt (#862321)
+* Wed Apr 22 2015 Jeff Law <law@redhat.com> 4.8-10
+- Fix race which caused follow-fork option to not always
+  work (#1214041)
 
-* Mon Apr 7 2014 Jeff Law <law@redhat.com> - 4.5.19-1.18
-- Fix output string for getsockopt (#862321)
-- Handle MADV_DONTDUMP and MADV_DODUMP (#921548)
-- Do not segfault when sorting by name and name is NULL (# 1044605)
+* Fri Aug 15 2014 Jeff Law <law@redhat.com> 4.8-9
+- Fix prototype for ptrace (#1129572)
 
-* Mon Dec 12 2012 Jeff Law <law@redhat.com> - 4.5.19-1.17
-- Add Obsoletes: strace64
+* Fri Aug 1 2014 Jeff Law <law@redhat.com> 4.8-8
+- update for ppc64 -- Dan Horak's patch from Fedora (#1122390)
 
-* Mon Oct 15 2012 Jeff Law <law@redhat.com> - 4.5.19-1.16
-- Remove strace64 bits, they're not needed for rhel6+ (#809917)
+* Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 4.8-7
+- Mass rebuild 2014-01-24
 
-* Tue Sep 11 2012 Jeff Law <law@redhat.com> - 4.5.19-1.15
-- Additional patches related to process startup. (#837183)
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 4.8-6
+- Mass rebuild 2013-12-27
 
-* Mon Aug 06 2012 Jeff Law <law@redhat.com> - 4.5.19-1.14
-- Patch for 837183 wasn't applied.  Apply it. (#837183)
+* Wed Dec 18 2013 Jeff Law <law@redhat.com> 4.8-5
+- Don't pass NULL pointers to strcmp when sorting by syscall
+  name (#1044044)
 
-* Mon Aug 06 2012 Jeff Law <law@redhat.com> - 4.5.19-1.13
-- build strace32 on ppc and s390 which can be installed alongside
-  strace/strace64 on ppc64 and s390x (#809917)
+* Thu Oct 3 2013 Jeff Law <law@redhat.com> - 4.8-4
+- Build strace32 on ppc/s390 which can be installed alongside of strace
+  on ppc64/s390x (#980229)
 
-* Fri Aug 03 2012 Jeff Law <law@redhat.com> - 4.5.19-1.12
-- Fix semtimedop decoding for S390/S390x (#759569)
-- Use PTRACE_SETOPTIONS to set behaviour of ptrace at fork/vfork/clone
-  syscalls rather than buggy magic breakpoint methods (#837183).
+* Wed Jul 17 2013 Jeff Law <law@redhat.com> - 4.8-3
+- Refetch registers in collect_stopped_tcbs (#971352)
 
-* Thu Dec 22 2011 Jeff Law <law@redhat.com> - 4.5.19-1.11
-- Track personality more carefully (#769118)
+* Wed Jun 12 2013 Jeff Law <ldv@altlinux.org> - 4.8-2
+- Don't dereference dropped TCP (#971352).  From
+  Jan Stancek.  Merged into patch for 851457.
+- Disable "net" test as it is highly timing dependent
+  Merge into patch 851457.
+- Bring forward patches lost after resyncing with Fedora.
+  - Patch to avoid strict aliasing warnings
+  - Patch to add man page for strace-log-merge (#948577)
+  - Patch to improve scheduling fairness (#851457)
 
-* Fri Feb  4 2011 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.10
-- Only check for CLONE_UNTRACED on clone syscall (#675106)
+* Mon Jun 03 2013 Dmitry V. Levin <ldv@altlinux.org> - 4.8-1
+- New upstream release:
+  + fixed ERESTARTNOINTR leaking to userspace on ancient kernels (#659382);
+  + fixed decoding of *xattr syscalls (#885233);
+  + fixed handling of files with 64-bit inode numbers by 32-bit strace (#912790);
+  + added aarch64 support (#969858).
 
-* Wed Jan 26 2011 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.9
-- Handle CLONE_UNTRACED (#642389)
-- Correctly decode 64-bit syscall argument values (#654515)
+* Fri Feb 15 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.7-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
 
-* Thu Jan 20 2011 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.8
-- Remove internal_waitpid (#533199)
+* Sat Jul 21 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
 
-* Thu Nov 25 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.7
-- Update manpage (#533199)
+* Wed May 02 2012 Dmitry V. Levin <ldv@altlinux.org> 4.7-1
+- New upstream release.
+  + implemented proper handling of real SIGTRAPs (#162774).
 
-* Thu Jul  8 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.6
-- Collect processes in batches (#526740)
+* Sat Jan 14 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
 
-* Thu Apr 15 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.5
-- Handle special ptrace signal during detach (#580211)
+* Mon Mar 14 2011 Dmitry V. Levin <ldv@altlinux.org> - 4.6-1
+- New upstream release.
+  + fixed a corner case in waitpid handling (#663547).
 
-* Fri Apr  9 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.4
-- Actually apply the patch
+* Wed Feb 09 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.5.20-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
 
-* Mon Mar 15 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.3
-- Use PTRACE_SETOPTIONS to obsolete TCB_WAITEXECVE (#561805)
-
-* Tue Jan 26 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.2
-- Fix spurious failure of AC_STAT64 configure check (#558765)
-
-* Tue Jan 12 2010 Andreas Schwab <schwab@redhat.com> - 4.5.19-1.1
-- Don't kill process when detaching (#545451)
+* Tue Apr 13 2010 Roland McGrath <roland@redhat.com> - 4.5.20-1
+- New upstream release, work mostly by Andreas Schwab and Dmitry V. Levin.
+  + fixed potential stack buffer overflow in select decoder (#556678);
+  + fixed FTBFS (#539044).
 
 * Wed Oct 21 2009 Roland McGrath <roland@redhat.com> - 4.5.19-1
 - New upstream release, work mostly by Dmitry V. Levin <ldv@altlinux.org>
@@ -372,7 +360,7 @@ rm -rf %{buildroot}
 * Thu Jul 17 2003 Roland McGrath <roland@redhat.com> 4.4.99-1
 - new upstream version, groks more new system calls, PF_INET6 sockets
 
-* Mon Jun 10 2003 Roland McGrath <roland@redhat.com> 4.4.98-1
+* Tue Jun 10 2003 Roland McGrath <roland@redhat.com> 4.4.98-1
 - new upstream version, more fixes (#90754, #91085)
 
 * Wed Jun 04 2003 Elliot Lee <sopwith@redhat.com>
@@ -465,7 +453,7 @@ rm -rf %{buildroot}
 * Fri Jan 19 2001 Bill Nottingham <notting@redhat.com>
 - update to CVS, reintegrate ia64 support
 
-* Sat Dec  8 2000 Bernhard Rosenkraenzer <bero@redhat.com>
+* Fri Dec  8 2000 Bernhard Rosenkraenzer <bero@redhat.com>
 - Get S/390 support into the normal package
 
 * Sat Nov 18 2000 Florian La Roche <Florian.LaRoche@redhat.de>
@@ -561,3 +549,4 @@ rm -rf %{buildroot}
 
 * Mon Jun 08 1998 Prospector System <bugs@redhat.com>
 - translations modified for de, fr, tr
+

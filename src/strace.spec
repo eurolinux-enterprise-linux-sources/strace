@@ -1,14 +1,14 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 4.5.19
+Version: 4.8
 Release: 1%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
-Source0: http://dl.sourceforge.net/strace/%{name}-%{version}.tar.bz2
+Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: libaio-devel, libacl-devel
+BuildRequires: libacl-devel, libaio-devel, time
 
 %define strace64_arches ppc64 sparc64
 
@@ -66,13 +66,17 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %{copy64} %{buildroot}%{_bindir}/strace %{buildroot}%{_bindir}/strace64
 %endif
 
+%check
+make check
+
 %clean
 rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%doc CREDITS ChangeLog ChangeLog-CVS COPYRIGHT NEWS PORTING README
+%doc CREDITS ChangeLog ChangeLog-CVS COPYING NEWS README
 %{_bindir}/strace
+%{_bindir}/strace-log-merge
 %{_mandir}/man1/*
 
 %ifarch %{strace64_arches}
@@ -82,6 +86,38 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Mon Jun 03 2013 Dmitry V. Levin <ldv@altlinux.org> - 4.8-1
+- New upstream release:
+  + fixed ERESTARTNOINTR leaking to userspace on ancient kernels (#659382);
+  + fixed decoding of *xattr syscalls (#885233);
+  + fixed handling of files with 64-bit inode numbers by 32-bit strace (#912790);
+  + added aarch64 support (#969858).
+
+* Fri Feb 15 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.7-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
+
+* Sat Jul 21 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
+
+* Wed May 02 2012 Dmitry V. Levin <ldv@altlinux.org> 4.7-1
+- New upstream release.
+  + implemented proper handling of real SIGTRAPs (#162774).
+
+* Sat Jan 14 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.6-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
+* Mon Mar 14 2011 Dmitry V. Levin <ldv@altlinux.org> - 4.6-1
+- New upstream release.
+  + fixed a corner case in waitpid handling (#663547).
+
+* Wed Feb 09 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.5.20-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
+
+* Tue Apr 13 2010 Roland McGrath <roland@redhat.com> - 4.5.20-1
+- New upstream release, work mostly by Andreas Schwab and Dmitry V. Levin.
+  + fixed potential stack buffer overflow in select decoder (#556678);
+  + fixed FTBFS (#539044).
+
 * Wed Oct 21 2009 Roland McGrath <roland@redhat.com> - 4.5.19-1
 - New upstream release, work mostly by Dmitry V. Levin <ldv@altlinux.org>
   + exit/kill strace with traced process exitcode/signal (#105371);
