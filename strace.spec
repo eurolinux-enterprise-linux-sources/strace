@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.5.19
-Release: 1.11%{?dist}.2
+Release: 1.17%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -16,18 +16,23 @@ Patch6: strace-rh661748.patch
 Patch7: strace-rh642389.patch
 Patch8: strace-rh654515.patch
 Patch9: strace-rh769118.patch
-Patch10: strace-rh849052.patch
-Patch11: strace-rh849052-2.patch
-Patch12: strace-rh849052-3.patch
-Patch13: strace-rh849052-4.patch
-Patch14: strace-rh849052-5.patch
-Patch15: strace-rh849052-6.patch
+Patch10: strace-rh759569.patch
+Patch11: strace-rh837183.patch
+Patch12: strace-rh837183-2.patch
+Patch13: strace-rh837183-3.patch
+Patch14: strace-rh837183-4.patch
+Patch15: strace-rh837183-5.patch
+Patch16: strace-rh837183-6.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: libaio-devel, libacl-devel
 
-%define strace64_arches ppc64 sparc64
-%define strace32_arches ppc
+# In the past we had a separate strace64 package, these days the 
+# standard 64 bit build provides that functionality.  For tracing
+# 32 bit applications we still have strace32 
+Obsoletes: strace64
+
+%define strace32_arches ppc s390
 
 %description
 The strace program intercepts and records the system calls called and
@@ -39,25 +44,7 @@ purposes.
 Install strace if you need a tool to track the system calls made and
 received by a process.
 
-%ifarch %{strace64_arches}
-%package -n strace64
-Summary: Tracks and displays system calls associated with a running process.
-Group: Development/Debuggers
-
-%description -n strace64
-The strace program intercepts and records the system calls called and
-received by a running process.  Strace can print a record of each
-system call, its arguments and its return value.  Strace is useful for
-diagnosing problems and debugging, as well as for instructional
-purposes.
-
-Install strace if you need a tool to track the system calls made and
-received by a process.
-
-This package provides the `strace64' program to trace 64-bit processes.
-The `strace' program in the `strace' package is for 32-bit processes.
-%endif
-
+%ifarch %{strace32_arches}
 %package -n strace32
 Summary: Tracks and displays system calls associated with a running process.
 Group: Development/Debuggers
@@ -72,8 +59,9 @@ purposes.
 Install strace if you need a tool to track the system calls made and
 received by a process.
 
-This package provides the `strace32' program to trace 32-bit processes.
-The `strace' program in the `strace' package is for 64-bit processes.
+This package provides the `strace32' program to trace 32-bit processes on
+64-bit IBM P and Z series platforms.
+%endif
 
 %prep
 %setup -q
@@ -93,6 +81,7 @@ The `strace' program in the `strace' package is for 64-bit processes.
 %patch13 -p1
 %patch14 -p1
 %patch15 -p1
+%patch16 -p1
 
 %build
 %configure
@@ -110,9 +99,6 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %define copy64 cp -p
 %endif
 
-%ifarch %{strace64_arches}
-%{copy64} %{buildroot}%{_bindir}/strace %{buildroot}%{_bindir}/strace64
-%endif
 %ifarch %{strace32_arches}
 %{copy64} %{buildroot}%{_bindir}/strace %{buildroot}%{_bindir}/strace32
 %endif
@@ -126,12 +112,6 @@ rm -rf %{buildroot}
 %{_bindir}/strace
 %{_mandir}/man1/*
 
-%ifarch %{strace64_arches}
-%files -n strace64
-%defattr(-,root,root)
-%{_bindir}/strace64
-%endif
-
 %ifarch %{strace32_arches}
 %files -n strace32
 %defattr(-,root,root)
@@ -139,12 +119,26 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Wed Sep 12 2012 Jeff Law <law@redhat.com> - 4.5.19-1.11.el6_3.2
-- Additional patches related to process startup. (#849052)
+* Mon Dec 12 2012 Jeff Law <law@redhat.com> - 4.5.19-1.17
+- Add Obsoletes: strace64
 
-* Fri Aug 17 2012 Jeff Law <law@redhat.com> - 4.5.19-1.11.el6_3.1
+* Mon Oct 15 2012 Jeff Law <law@redhat.com> - 4.5.19-1.16
+- Remove strace64 bits, they're not needed for rhel6+ (#809917)
+
+* Tue Sep 11 2012 Jeff Law <law@redhat.com> - 4.5.19-1.15
+- Additional patches related to process startup. (#837183)
+
+* Mon Aug 06 2012 Jeff Law <law@redhat.com> - 4.5.19-1.14
+- Patch for 837183 wasn't applied.  Apply it. (#837183)
+
+* Mon Aug 06 2012 Jeff Law <law@redhat.com> - 4.5.19-1.13
+- build strace32 on ppc and s390 which can be installed alongside
+  strace/strace64 on ppc64 and s390x (#809917)
+
+* Fri Aug 03 2012 Jeff Law <law@redhat.com> - 4.5.19-1.12
+- Fix semtimedop decoding for S390/S390x (#759569)
 - Use PTRACE_SETOPTIONS to set behaviour of ptrace at fork/vfork/clone
-  syscalls rather than buggy magic breakpoint methods (#849052).
+  syscalls rather than buggy magic breakpoint methods (#837183).
 
 * Thu Dec 22 2011 Jeff Law <law@redhat.com> - 4.5.19-1.11
 - Track personality more carefully (#769118)
