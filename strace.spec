@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.8
-Release: 11%{?dist}
+Release: 7%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -15,10 +15,6 @@ Patch1001: strace-rh948577.patch
 Patch1002: strace-rh851457.patch
 Patch1003: strace-rh971352.patch
 Patch1004: strace-rh1044044.patch
-Patch1005: strace-4.8-ppc64.patch
-Patch1006: strace-rh1129572.patch
-Patch1007: strace-rh1214041.patch
-
 
 # In the past we had a separate strace64 package, these days the
 # stndard 64 bit build provides that functionality.  For tracing
@@ -63,9 +59,6 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch1002 -p1
 %patch1003 -p1
 %patch1004 -p1
-%patch1005 -p1
-%patch1006 -p1
-%patch1007 -p1
 
 %build
 %configure
@@ -109,19 +102,6 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Thu Jul 30 2015 Jeff Law <law@redhat.com> 4.8-11
-- Fix race which caused follow-fork option to not always
-  work (#1235833)
-
-* Tue May 12 2015 Peter Robinson <pbrobinson@redhat.com> 4.8-10
-- rebuild
-
-* Fri Aug 15 2014 Jeff Law <law@redhat.com> 4.8-9
-- Fix prototype for ptrace (#1129572)
-
-* Fri Aug 1 2014 Jeff Law <law@redhat.com> 4.8-8
-- update for ppc64 -- Dan Horak's patch from Fedora (#1122390)
-
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 4.8-7
 - Mass rebuild 2014-01-24
 
