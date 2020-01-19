@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.12
-Release: 6%{?dist}
+Release: 4%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -23,9 +23,6 @@ Patch2003: strace-rh1377847.patch
 Patch3001: strace-rpmbuild-m64.patch
 Patch3002: strace-no-setgid-rhel6.patch
 Patch3003: strace-rh1449935.patch
-Patch3004: strace-rh1466535.patch
-Patch3005: strace-rh1540954-1.patch
-Patch3006: strace-rh1540954-2.patch
 
 # In the past we had a separate strace64 package, these days the
 # stndard 64 bit build provides that functionality.  For tracing
@@ -78,9 +75,6 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch3001 -p1
 %patch3002 -p1
 %patch3003 -p1
-%patch3004 -p1
-%patch3005 -p1
-%patch3006 -p1
 
 %build
 %configure
@@ -106,7 +100,7 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 
 %check
 # Temporary until we dig deeper into the failures
-%ifnarch s390 s390x ppc64 ppc64le
+%ifnarch s390x ppc64
 make -k check
 %endif
 
@@ -127,13 +121,6 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Wed Feb  7 2018 DJ Delorie <dj@redhat.com> - 4.12-6
-- Update membarrier constants. (#1540954)
-
-* Thu Sep 14 2017 DJ Delorie <dj@redhat.com> - 4.12-5
-- Handle unexpected CLONE_PTRACE events. (#1466535)
-- Skip tests for s390/ppc64le as well as s390x/ppc64.
-
 * Fri May 12 2017 DJ Delorie <dj@redhat.com> - 4.12-4
 - Fix typo in btrfs detection logic.  (#1449935)
 
