@@ -1,0 +1,58 @@
+diff -rup a/open.c b/open.c
+--- a/open.c	2017-03-27 13:09:44.077819446 -0400
++++ b/open.c	2017-03-27 13:10:05.300586883 -0400
+@@ -36,6 +36,10 @@
+ 
+ #include <fcntl.h>
+ 
++#ifndef O_TMPFILE
++#define O_TMPFILE 020000000
++#endif
++
+ #ifdef O_LARGEFILE
+ # if O_LARGEFILE == 0          /* biarch platforms in 64-bit mode */
+ #  undef O_LARGEFILE
+@@ -115,6 +119,13 @@ tprint_open_modes(unsigned int flags)
+ 	tprints(sprint_open_modes(flags) + sizeof("flags"));
+ }
+ 
++#ifdef O_TMPFILE
++/* The kernel & C libraries often inline O_DIRECTORY. */
++# define STRACE_O_TMPFILE (O_TMPFILE & ~O_DIRECTORY)
++#else /* !O_TMPFILE */
++# define STRACE_O_TMPFILE 0
++#endif
++
+ static int
+ decode_open(struct tcb *tcp, int offset)
+ {
+@@ -122,7 +133,7 @@ decode_open(struct tcb *tcp, int offset)
+ 	tprints(", ");
+ 	/* flags */
+ 	tprint_open_modes(tcp->u_arg[offset + 1]);
+-	if (tcp->u_arg[offset + 1] & O_CREAT) {
++	if (tcp->u_arg[offset + 1] & (O_CREAT | STRACE_O_TMPFILE)) {
+ 		/* mode */
+ 		tprintf(", %#lo", tcp->u_arg[offset + 2]);
+ 	}
+diff -rup a/tests/open.c b/tests/open.c
+--- a/tests/open.c	2017-03-27 13:09:44.078819435 -0400
++++ b/tests/open.c	2017-03-27 13:31:55.843649714 -0400
+@@ -59,6 +59,17 @@ main(void)
+ 		       " = %d %s (%m)\n", sample, fd, errno2name());
+ 	}
+ 
++#ifdef O_TMPFILE
++# if O_TMPFILE == (O_TMPFILE & ~O_DIRECTORY)
++#  define STR_O_TMPFILE "O_TMPFILE"
++# else
++#  define STR_O_TMPFILE "O_DIRECTORY|O_TMPFILE"
++# endif
++	fd = syscall(__NR_open, sample, O_WRONLY|O_TMPFILE, 0600);
++	printf("open(\"%s\", O_WRONLY|%s, 0600) = %d %s (%m)\n",
++	       sample, STR_O_TMPFILE, fd, errno2name());
++#endif /* O_TMPFILE */
++
+ 	puts("+++ exited with 0 +++");
+ 	return 0;
+ }
