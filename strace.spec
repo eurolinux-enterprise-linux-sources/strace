@@ -1,34 +1,23 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 4.12
-Release: 9%{?dist}
+Version: 4.8
+Release: 11%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
-Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.gz
+Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.xz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires: libacl-devel, time
+BuildRequires: libacl-devel, libaio-devel, time
 
 Patch1000: strace-strict-aliasing.patch
 Patch1001: strace-rh948577.patch
 Patch1002: strace-rh851457.patch
-Patch1005: strace-no-net-tests.patch
-Patch1007: strace-no-uio-tests.patch
-
-Patch2001: strace-4.12-vhangup.patch
-Patch2002: strace-4.12-chown.patch
-Patch2003: strace-rh1377847.patch
-
-Patch3001: strace-rpmbuild-m64.patch
-Patch3002: strace-no-setgid-rhel6.patch
-Patch3003: strace-rh1449935.patch
-Patch3004: strace-rh1466535.patch
-Patch3005: strace-rh1540954-1.patch
-Patch3006: strace-rh1540954-2.patch
-Patch3007: strace-rh1573034.patch
-Patch3008: strace-rh1600210-0001-Update-MEMBARRIER_CMD_-constants.patch
-Patch3009: strace-rh1600210-0002-tests-membarrier.c-fix-expected-output-on-nohz_full-.patch
+Patch1003: strace-rh971352.patch
+Patch1004: strace-rh1044044.patch
+Patch1005: strace-4.8-ppc64.patch
+Patch1006: strace-rh1129572.patch
+Patch1007: strace-rh1214041.patch
 
 
 # In the past we had a separate strace64 package, these days the
@@ -72,22 +61,11 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch1000 -p1
 %patch1001 -p1
 %patch1002 -p1
+%patch1003 -p1
+%patch1004 -p1
 %patch1005 -p1
+%patch1006 -p1
 %patch1007 -p1
-
-%patch2001 -p1
-%patch2002 -p1
-%patch2003 -p1
-
-%patch3001 -p1
-%patch3002 -p1
-%patch3003 -p1
-%patch3004 -p1
-%patch3005 -p1
-%patch3006 -p1
-%patch3007 -p1
-%patch3008 -p1
-%patch3009 -p1
 
 %build
 %configure
@@ -112,10 +90,7 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %endif
 
 %check
-# Temporary until we dig deeper into the failures
-%ifnarch s390 s390x ppc64 ppc64le
-make -k check VERBOSE=1
-%endif
+make check
 
 %clean
 rm -rf %{buildroot}
@@ -134,42 +109,6 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Sat Jul 21 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-9
-- Patch files in tests-m32 and tests-mx32 as well. (#1600210)
-
-* Thu Jul 19 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-8
-- Update membarrier constants. (#1600210)
-
-* Mon Apr 30 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-7
-- Return non-zero exit code if no processes have been attached. (#1573034)
-
-* Wed Feb  7 2018 DJ Delorie <dj@redhat.com> - 4.12-6
-- Update membarrier constants. (#1540954)
-
-* Thu Sep 14 2017 DJ Delorie <dj@redhat.com> - 4.12-5
-- Handle unexpected CLONE_PTRACE events. (#1466535)
-- Skip tests for s390/ppc64le as well as s390x/ppc64.
-
-* Fri May 12 2017 DJ Delorie <dj@redhat.com> - 4.12-4
-- Fix typo in btrfs detection logic.  (#1449935)
-
-* Thu Apr 13 2017 DJ Delorie <dj@redhat.com> - 4.12-3
-- Remove unneeded debug stuff. (#1377847)
-
-* Mon Apr 10 2017 DJ Delorie <dj@redhat.com> - 4.12-2
-- Adjust O_TMPFILE patch to include support even if the
-  build-time headers don't have it. (#1377847)
-
-* Tue Feb 21 2017 DJ Delorie <dj@redhat.com> - 4.12-1
-- Rebase to strace 4.12, which fixes...
-  + Support BLKPG_RESIZE_PARTITION (#1329673)
-  + Support getrandom() (#1374268)
-  + Fix endless loop in io_submit (#1165548)
-- Merge upstream patches for vhangup and chown
-- Skip some tests on older kernels (RHEL 6)
-- Remove -m64 that rpm macros adds
-- Show mode with O_TMPFILE (#1377847)
-
 * Thu Jul 30 2015 Jeff Law <law@redhat.com> 4.8-11
 - Fix race which caused follow-fork option to not always
   work (#1235833)

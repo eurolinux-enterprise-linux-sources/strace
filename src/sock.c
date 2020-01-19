@@ -27,220 +27,87 @@
 
 #include "defs.h"
 #include <sys/socket.h>
-#if defined ALPHA || defined SH || defined SH64
-# include <linux/ioctl.h>
-#endif
 #include <linux/sockios.h>
 #include <arpa/inet.h>
+#if defined(ALPHA) || defined(SH) || defined(SH64)
+# if defined(HAVE_SYS_IOCTL_H)
+#  include <sys/ioctl.h>
+# elif defined(HAVE_IOCTLS_H)
+#  include <ioctls.h>
+# endif
+#endif
 #include <net/if.h>
 
-#include "xlat/iffflags.h"
+static const struct xlat iffflags[] = {
+	{ IFF_UP,		"IFF_UP"		},
+	{ IFF_BROADCAST,	"IFF_BROADCAST"		},
+	{ IFF_DEBUG,		"IFF_DEBUG"		},
+	{ IFF_LOOPBACK,		"IFF_LOOPBACK"		},
+	{ IFF_POINTOPOINT,	"IFF_POINTOPOINT"	},
+	{ IFF_NOTRAILERS,	"IFF_NOTRAILERS"	},
+	{ IFF_RUNNING,		"IFF_RUNNING"		},
+	{ IFF_NOARP,		"IFF_NOARP"		},
+	{ IFF_PROMISC,		"IFF_PROMISC"		},
+	{ IFF_ALLMULTI,		"IFF_ALLMULTI"		},
+	{ IFF_MASTER,		"IFF_MASTER"		},
+	{ IFF_SLAVE,		"IFF_SLAVE"		},
+	{ IFF_MULTICAST,	"IFF_MULTICAST"		},
+	{ IFF_PORTSEL,		"IFF_PORTSEL"		},
+	{ IFF_AUTOMEDIA,	"IFF_AUTOMEDIA"		},
+	{ 0,			NULL			}
+};
 
 static void
-print_ifreq_addr(struct tcb *tcp, const struct ifreq *ifr, const long addr)
+print_addr(struct tcb *tcp, long addr, struct ifreq *ifr)
 {
-	tprintf("{");
-	printxval(addrfams, ifr->ifr_addr.sa_family, "AF_???");
-	tprints(", ");
 	if (ifr->ifr_addr.sa_family == AF_INET) {
-		const struct sockaddr_in *sinp =
-			(struct sockaddr_in *) &ifr->ifr_addr;
+		struct sockaddr_in *sinp;
+		sinp = (struct sockaddr_in *) &ifr->ifr_addr;
 		tprintf("inet_addr(\"%s\")", inet_ntoa(sinp->sin_addr));
 	} else
-		printstr(tcp, addr + offsetof(struct ifreq, ifr_addr.sa_data),
-			 sizeof(ifr->ifr_addr.sa_data));
-	tprints("}");
-}
-
-static void
-print_ifname(const char *ifname)
-{
-	print_quoted_string(ifname, IFNAMSIZ + 1, QUOTE_0_TERMINATED);
-}
-
-static void
-print_ifreq(struct tcb *tcp, const unsigned int code, const long arg,
-	    const struct ifreq *ifr)
-{
-	switch (code) {
-	case SIOCSIFADDR:
-	case SIOCGIFADDR:
-		tprints("ifr_addr=");
-		print_ifreq_addr(tcp, ifr, arg);
-		break;
-	case SIOCSIFDSTADDR:
-	case SIOCGIFDSTADDR:
-		tprints("ifr_dstaddr=");
-		print_ifreq_addr(tcp, ifr, arg);
-		break;
-	case SIOCSIFBRDADDR:
-	case SIOCGIFBRDADDR:
-		tprints("ifr_broadaddr=");
-		print_ifreq_addr(tcp, ifr, arg);
-		break;
-	case SIOCSIFNETMASK:
-	case SIOCGIFNETMASK:
-		tprints("ifr_netmask=");
-		print_ifreq_addr(tcp, ifr, arg);
-		break;
-	case SIOCSIFHWADDR:
-	case SIOCGIFHWADDR: {
-		/* XXX Are there other hardware addresses
-		   than 6-byte MACs?  */
-		const unsigned char *bytes =
-			(unsigned char *) &ifr->ifr_hwaddr.sa_data;
-		tprintf("ifr_hwaddr=%02x:%02x:%02x:%02x:%02x:%02x",
-			bytes[0], bytes[1], bytes[2],
-			bytes[3], bytes[4], bytes[5]);
-		break;
-	}
-	case SIOCSIFFLAGS:
-	case SIOCGIFFLAGS:
-		tprints("ifr_flags=");
-		printflags(iffflags, (unsigned short) ifr->ifr_flags, "IFF_???");
-		break;
-	case SIOCSIFMETRIC:
-	case SIOCGIFMETRIC:
-		tprintf("ifr_metric=%d", ifr->ifr_metric);
-		break;
-	case SIOCSIFMTU:
-	case SIOCGIFMTU:
-		tprintf("ifr_mtu=%d", ifr->ifr_mtu);
-		break;
-	case SIOCSIFSLAVE:
-	case SIOCGIFSLAVE:
-		tprints("ifr_slave=");
-		print_ifname(ifr->ifr_slave);
-		break;
-	case SIOCSIFTXQLEN:
-	case SIOCGIFTXQLEN:
-		tprintf("ifr_qlen=%d", ifr->ifr_qlen);
-		break;
-	case SIOCSIFMAP:
-	case SIOCGIFMAP:
-		tprintf("ifr_map={mem_start=%#lx, "
-			"mem_end=%#lx, base_addr=%#x, "
-			"irq=%u, dma=%u, port=%u}",
-			ifr->ifr_map.mem_start,
-			ifr->ifr_map.mem_end,
-			(unsigned) ifr->ifr_map.base_addr,
-			(unsigned) ifr->ifr_map.irq,
-			(unsigned) ifr->ifr_map.dma,
-			(unsigned) ifr->ifr_map.port);
-		break;
-	}
-}
-
-static unsigned int
-print_ifc_len(int len)
-{
-	const unsigned int n = (unsigned int) len / sizeof(struct ifreq);
-
-	if (len < 0 || n * sizeof(struct ifreq) != (unsigned int) len)
-		tprintf("%d", len);
-	else
-		tprintf("%u * sizeof(struct ifreq)", n);
-
-	return n;
-}
-
-static int
-decode_ifconf(struct tcb *tcp, const long addr)
-{
-	struct ifconf ifc;
-
-	if (entering(tcp)) {
-		tprints(", ");
-		if (umove_or_printaddr(tcp, addr, &ifc))
-			return RVAL_DECODED | 1;
-		if (ifc.ifc_buf) {
-			tprints("{");
-			print_ifc_len(ifc.ifc_len);
-		}
-		return 1;
-	}
-
-	if (syserror(tcp) || umove(tcp, addr, &ifc) < 0) {
-		if (ifc.ifc_buf)
-			tprints("}");
-		else
-			printaddr(addr);
-		return RVAL_DECODED | 1;
-	}
-
-	if (!ifc.ifc_buf) {
-		tprints("{");
-		print_ifc_len(ifc.ifc_len);
-		tprints(", NULL}");
-		return RVAL_DECODED | 1;
-	}
-
-	tprints(" => ");
-	const unsigned int nifra = print_ifc_len(ifc.ifc_len);
-	if (!nifra) {
-		tprints("}");
-		return RVAL_DECODED | 1;
-	}
-
-	struct ifreq ifra[nifra > max_strlen ? max_strlen : nifra];
-	tprints(", ");
-	if (umove_or_printaddr(tcp, (unsigned long) ifc.ifc_buf, &ifra)) {
-		tprints("}");
-		return RVAL_DECODED | 1;
-	}
-
-	tprints("[");
-	unsigned int i;
-	for (i = 0; i < ARRAY_SIZE(ifra); ++i) {
-		if (i > 0)
-			tprints(", ");
-		tprints("{ifr_name=");
-		print_ifname(ifra[i].ifr_name);
-		tprints(", ");
-		if (verbose(tcp)) {
-			tprints("ifr_addr=");
-			print_ifreq_addr(tcp, &ifra[i],
-					 addr + i * sizeof(ifra[0]));
-		} else
-			tprints("...");
-		tprints("}");
-	}
-	if (i < nifra)
-		tprints(", ...");
-	tprints("]}");
-
-	return RVAL_DECODED | 1;
+		printstr(tcp, addr, sizeof(ifr->ifr_addr.sa_data));
 }
 
 int
-sock_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
+sock_ioctl(struct tcb *tcp, long code, long arg)
 {
 	struct ifreq ifr;
+	struct ifconf ifc;
+	const char *str = NULL;
+	unsigned char *bytes;
+
+	if (entering(tcp)) {
+		if (code == SIOCGIFCONF) {
+			if (umove(tcp, tcp->u_arg[2], &ifc) >= 0
+			    && ifc.ifc_buf == NULL)
+				tprintf(", {%d -> ", ifc.ifc_len);
+			else
+				tprints(", {");
+		}
+		return 0;
+	}
 
 	switch (code) {
-	case SIOCGIFCONF:
-		return decode_ifconf(tcp, arg);
-
-#ifdef SIOCBRADDBR
-	case SIOCBRADDBR:
-	case SIOCBRDELBR:
-		tprints(", ");
-		printstr(tcp, arg, -1);
-		break;
+#ifdef SIOCSHIWAT
+	case SIOCSHIWAT:
 #endif
-
+#ifdef SIOCGHIWAT
+	case SIOCGHIWAT:
+#endif
+#ifdef SIOCSLOWAT
+	case SIOCSLOWAT:
+#endif
+#ifdef SIOCGLOWAT
+	case SIOCGLOWAT:
+#endif
 #ifdef FIOSETOWN
 	case FIOSETOWN:
 #endif
-#ifdef SIOCSPGRP
-	case SIOCSPGRP:
-#endif
-		tprints(", ");
-		printnum_int(tcp, arg, "%d");
-		break;
-
 #ifdef FIOGETOWN
 	case FIOGETOWN:
+#endif
+#ifdef SIOCSPGRP
+	case SIOCSPGRP:
 #endif
 #ifdef SIOCGPGRP
 	case SIOCGPGRP:
@@ -248,99 +115,173 @@ sock_ioctl(struct tcb *tcp, const unsigned int code, const long arg)
 #ifdef SIOCATMARK
 	case SIOCATMARK:
 #endif
-		if (entering(tcp))
-			return 0;
-		tprints(", ");
-		printnum_int(tcp, arg, "%d");
-		break;
-
-#ifdef SIOCBRADDIF
-	case SIOCBRADDIF:
-#endif
-#ifdef SIOCBRDELIF
-	case SIOCBRDELIF:
-#endif
-		/* no arguments */
-		break;
-
-	case SIOCSIFNAME:
-	case SIOCSIFADDR:
-	case SIOCSIFDSTADDR:
-	case SIOCSIFBRDADDR:
-	case SIOCSIFNETMASK:
-	case SIOCSIFFLAGS:
-	case SIOCSIFMETRIC:
-	case SIOCSIFMTU:
-	case SIOCSIFSLAVE:
-	case SIOCSIFHWADDR:
-	case SIOCSIFTXQLEN:
-	case SIOCSIFMAP:
-		tprints(", ");
-		if (umove_or_printaddr(tcp, arg, &ifr))
-			break;
-
-		tprints("{ifr_name=");
-		print_ifname(ifr.ifr_name);
-		tprints(", ");
-		if (code == SIOCSIFNAME) {
-			tprints("ifr_newname=");
-			print_ifname(ifr.ifr_newname);
-		} else {
-			print_ifreq(tcp, code, arg, &ifr);
-		}
-		tprints("}");
-		break;
-
+		printnum(tcp, arg, ", %#d");
+		return 1;
 	case SIOCGIFNAME:
+	case SIOCSIFNAME:
 	case SIOCGIFINDEX:
 	case SIOCGIFADDR:
+	case SIOCSIFADDR:
 	case SIOCGIFDSTADDR:
+	case SIOCSIFDSTADDR:
 	case SIOCGIFBRDADDR:
+	case SIOCSIFBRDADDR:
 	case SIOCGIFNETMASK:
+	case SIOCSIFNETMASK:
 	case SIOCGIFFLAGS:
+	case SIOCSIFFLAGS:
 	case SIOCGIFMETRIC:
+	case SIOCSIFMETRIC:
 	case SIOCGIFMTU:
+	case SIOCSIFMTU:
 	case SIOCGIFSLAVE:
+	case SIOCSIFSLAVE:
 	case SIOCGIFHWADDR:
+	case SIOCSIFHWADDR:
 	case SIOCGIFTXQLEN:
+	case SIOCSIFTXQLEN:
 	case SIOCGIFMAP:
-		if (entering(tcp)) {
-			tprints(", ");
-			if (umove_or_printaddr(tcp, arg, &ifr))
+	case SIOCSIFMAP:
+		if (umove(tcp, tcp->u_arg[2], &ifr) < 0)
+			tprintf(", %#lx", tcp->u_arg[2]);
+		else if (syserror(tcp)) {
+			if (code == SIOCGIFNAME || code == SIOCSIFNAME)
+				tprintf(", {ifr_index=%d, ifr_name=???}", ifr.ifr_ifindex);
+			else
+				tprintf(", {ifr_name=\"%s\", ???}", ifr.ifr_name);
+		} else if (code == SIOCGIFNAME || code == SIOCSIFNAME)
+			tprintf(", {ifr_index=%d, ifr_name=\"%s\"}",
+				ifr.ifr_ifindex, ifr.ifr_name);
+		else {
+			tprintf(", {ifr_name=\"%s\", ", ifr.ifr_name);
+			switch (code) {
+			case SIOCGIFINDEX:
+				tprintf("ifr_index=%d", ifr.ifr_ifindex);
 				break;
-
-			if (SIOCGIFNAME == code) {
-				tprintf("{ifr_index=%d", ifr.ifr_ifindex);
-			} else {
-				tprints("{ifr_name=");
-				print_ifname(ifr.ifr_name);
-			}
-			return 1;
-		} else {
-			if (syserror(tcp)) {
+			case SIOCGIFADDR:
+			case SIOCSIFADDR:
+				str = "ifr_addr";
+			case SIOCGIFDSTADDR:
+			case SIOCSIFDSTADDR:
+				if (!str)
+					str = "ifr_dstaddr";
+			case SIOCGIFBRDADDR:
+			case SIOCSIFBRDADDR:
+				if (!str)
+					str = "ifr_broadaddr";
+			case SIOCGIFNETMASK:
+			case SIOCSIFNETMASK:
+				if (!str)
+					str = "ifr_netmask";
+				tprintf("%s={", str);
+				printxval(addrfams,
+					  ifr.ifr_addr.sa_family,
+					  "AF_???");
+				tprints(", ");
+				print_addr(tcp, ((long) tcp->u_arg[2]
+						 + offsetof(struct ifreq,
+							     ifr_addr.sa_data)),
+					   &ifr);
 				tprints("}");
 				break;
-			}
-
-			tprints(", ");
-			if (umove(tcp, arg, &ifr) < 0) {
-				tprints("???}");
+			case SIOCGIFHWADDR:
+			case SIOCSIFHWADDR:
+				/* XXX Are there other hardware addresses
+				   than 6-byte MACs?  */
+				bytes = (unsigned char *) &ifr.ifr_hwaddr.sa_data;
+				tprintf("ifr_hwaddr=%02x:%02x:%02x:%02x:%02x:%02x",
+					bytes[0], bytes[1], bytes[2],
+					bytes[3], bytes[4], bytes[5]);
+				break;
+			case SIOCGIFFLAGS:
+			case SIOCSIFFLAGS:
+				tprints("ifr_flags=");
+				printflags(iffflags, ifr.ifr_flags, "IFF_???");
+				break;
+			case SIOCGIFMETRIC:
+			case SIOCSIFMETRIC:
+				tprintf("ifr_metric=%d", ifr.ifr_metric);
+				break;
+			case SIOCGIFMTU:
+			case SIOCSIFMTU:
+				tprintf("ifr_mtu=%d", ifr.ifr_mtu);
+				break;
+			case SIOCGIFSLAVE:
+			case SIOCSIFSLAVE:
+				tprintf("ifr_slave=\"%s\"", ifr.ifr_slave);
+				break;
+			case SIOCGIFTXQLEN:
+			case SIOCSIFTXQLEN:
+				tprintf("ifr_qlen=%d", ifr.ifr_qlen);
+				break;
+			case SIOCGIFMAP:
+			case SIOCSIFMAP:
+				tprintf("ifr_map={mem_start=%#lx, "
+					"mem_end=%#lx, base_addr=%#x, "
+					"irq=%u, dma=%u, port=%u}",
+					ifr.ifr_map.mem_start,
+					ifr.ifr_map.mem_end,
+					(unsigned) ifr.ifr_map.base_addr,
+					(unsigned) ifr.ifr_map.irq,
+					(unsigned) ifr.ifr_map.dma,
+					(unsigned) ifr.ifr_map.port);
 				break;
 			}
+			tprints("}");
+		}
+		return 1;
+	case SIOCGIFCONF:
+		if (umove(tcp, tcp->u_arg[2], &ifc) < 0) {
+			tprints("???}");
+			return 1;
+		}
+		tprintf("%d, ", ifc.ifc_len);
+		if (syserror(tcp)) {
+			tprintf("%lx", (unsigned long) ifc.ifc_buf);
+		} else if (ifc.ifc_buf == NULL) {
+			tprints("NULL");
+		} else {
+			int i;
+			unsigned nifra = ifc.ifc_len / sizeof(struct ifreq);
+			struct ifreq ifra[nifra];
 
-			if (SIOCGIFNAME == code) {
-				tprints("ifr_name=");
-				print_ifname(ifr.ifr_name);
-			} else {
-				print_ifreq(tcp, code, arg, &ifr);
+			if (umoven(tcp, (unsigned long) ifc.ifc_buf,
+				sizeof(ifra), (char *) ifra) < 0) {
+				tprintf("%lx}", (unsigned long) ifc.ifc_buf);
+				return 1;
+			}
+			tprints("{");
+			for (i = 0; i < nifra; ++i ) {
+				if (i > 0)
+					tprints(", ");
+				tprintf("{\"%s\", {",
+					ifra[i].ifr_name);
+				if (verbose(tcp)) {
+					printxval(addrfams,
+						  ifra[i].ifr_addr.sa_family,
+						  "AF_???");
+					tprints(", ");
+					print_addr(tcp, ((long) tcp->u_arg[2]
+							 + offsetof(struct ifreq,
+								     ifr_addr.sa_data)
+							 + ((char *) &ifra[i]
+							    - (char *) &ifra[0])),
+						   &ifra[i]);
+				} else
+					tprints("...");
+				tprints("}}");
 			}
 			tprints("}");
-			break;
 		}
-
+		tprints("}");
+		return 1;
 	default:
-		return RVAL_DECODED;
+		return 0;
 	}
+}
 
-	return RVAL_DECODED | 1;
+int
+sys_socketcall(struct tcb *tcp)
+{
+	return printargs(tcp);
 }

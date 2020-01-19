@@ -29,30 +29,23 @@
  */
 
 #include "defs.h"
-#include <linux/ioctl.h>
-#include "xlat/ioctl_dirs.h"
-
-#ifdef HAVE_LINUX_INPUT_H
-# include <linux/input.h>
-#endif
-
-#include "xlat/evdev_abs.h"
-#include "xlat/evdev_ev.h"
+#include <asm/ioctl.h>
 
 static int
 compare(const void *a, const void *b)
 {
-	const unsigned int code1 = (const unsigned long) a;
-	const unsigned int code2 = ((struct_ioctlent *) b)->code;
+	unsigned long code1 = (long) a;
+	unsigned long code2 = ((struct_ioctlent *) b)->code;
 	return (code1 > code2) ? 1 : (code1 < code2) ? -1 : 0;
 }
 
-static const struct_ioctlent *
-ioctl_lookup(const unsigned int code)
+const struct_ioctlent *
+ioctl_lookup(long code)
 {
 	struct_ioctlent *iop;
 
-	iop = bsearch((const void *) (const unsigned long) code, ioctlent,
+	code &= (_IOC_NRMASK<<_IOC_NRSHIFT) | (_IOC_TYPEMASK<<_IOC_TYPESHIFT);
+	iop = bsearch((void*)code, ioctlent,
 			nioctlents, sizeof(ioctlent[0]), compare);
 	while (iop > ioctlent) {
 		iop--;
@@ -64,184 +57,25 @@ ioctl_lookup(const unsigned int code)
 	return iop;
 }
 
-static const struct_ioctlent *
+const struct_ioctlent *
 ioctl_next_match(const struct_ioctlent *iop)
 {
-	const unsigned int code = iop->code;
+	long code;
+
+	code = iop->code;
 	iop++;
 	if (iop < ioctlent + nioctlents && iop->code == code)
 		return iop;
 	return NULL;
 }
 
-static void
-ioctl_print_code(const unsigned int code)
+int
+ioctl_decode(struct tcb *tcp, long code, long arg)
 {
-	tprints("_IOC(");
-	printflags(ioctl_dirs, _IOC_DIR(code), "_IOC_???");
-	tprintf(", 0x%02x, 0x%02x, 0x%02x)",
-		_IOC_TYPE(code), _IOC_NR(code), _IOC_SIZE(code));
-}
-
-static int
-evdev_decode_number(const unsigned int code)
-{
-	const unsigned int nr = _IOC_NR(code);
-
-	if (_IOC_DIR(code) == _IOC_WRITE) {
-		if (nr >= 0xc0 && nr <= 0xc0 + 0x3f) {
-			tprints("EVIOCSABS(");
-			printxval(evdev_abs, nr - 0xc0, "ABS_???");
-			tprints(")");
-			return 1;
-		}
-	}
-
-	if (_IOC_DIR(code) != _IOC_READ)
-		return 0;
-
-	if (nr >= 0x20 && nr <= 0x20 + 0x1f) {
-		tprints("EVIOCGBIT(");
-		printxval(evdev_ev, nr - 0x20, "EV_???");
-		tprintf(", %u)", _IOC_SIZE(code));
-		return 1;
-	} else if (nr >= 0x40 && nr <= 0x40 + 0x3f) {
-		tprints("EVIOCGABS(");
-		printxval(evdev_abs, nr - 0x40, "ABS_???");
-		tprints(")");
-		return 1;
-	}
-
-	switch (_IOC_NR(nr)) {
-		case 0x06:
-			tprintf("EVIOCGNAME(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x07:
-			tprintf("EVIOCGPHYS(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x08:
-			tprintf("EVIOCGUNIQ(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x09:
-			tprintf("EVIOCGPROP(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x0a:
-			tprintf("EVIOCGMTSLOTS(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x18:
-			tprintf("EVIOCGKEY(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x19:
-			tprintf("EVIOCGLED(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x1a:
-			tprintf("EVIOCGSND(%u)", _IOC_SIZE(code));
-			return 1;
-		case 0x1b:
-			tprintf("EVIOCGSW(%u)", _IOC_SIZE(code));
-			return 1;
-		default:
-			return 0;
-	}
-}
-
-static int
-hiddev_decode_number(const unsigned int code)
-{
-	if (_IOC_DIR(code) == _IOC_READ) {
-		switch (_IOC_NR(code)) {
-			case 0x04:
-				tprintf("HIDIOCGRAWNAME(%u)", _IOC_SIZE(code));
-				return 1;
-			case 0x05:
-				tprintf("HIDIOCGRAWPHYS(%u)", _IOC_SIZE(code));
-				return 1;
-			case 0x06:
-				tprintf("HIDIOCSFEATURE(%u)", _IOC_SIZE(code));
-				return 1;
-			case 0x12:
-				tprintf("HIDIOCGPHYS(%u)", _IOC_SIZE(code));
-				return 1;
-			default:
-				return 0;
-		}
-	} else if (_IOC_DIR(code) == (_IOC_READ | _IOC_WRITE)) {
-		switch (_IOC_NR(code)) {
-			case 0x06:
-				tprintf("HIDIOCSFEATURE(%u)", _IOC_SIZE(code));
-				return 1;
-			case 0x07:
-				tprintf("HIDIOCGFEATURE(%u)", _IOC_SIZE(code));
-				return 1;
-			default:
-				return 0;
-		}
-	}
-
-	return 0;
-}
-
-static int
-ioctl_decode_command_number(struct tcb *tcp)
-{
-	const unsigned int code = tcp->u_arg[1];
-
-	switch (_IOC_TYPE(code)) {
-		case 'E':
-			return evdev_decode_number(code);
-		case 'H':
-			return hiddev_decode_number(code);
-		case 'M':
-			if (_IOC_DIR(code) == _IOC_WRITE) {
-				tprintf("MIXER_WRITE(%u)", _IOC_NR(code));
-				return 1;
-			} else if (_IOC_DIR(code) == _IOC_READ) {
-				tprintf("MIXER_READ(%u)", _IOC_NR(code));
-				return 1;
-			}
-			return 0;
-		case 'U':
-			if (_IOC_DIR(code) == _IOC_READ && _IOC_NR(code) == 0x2c) {
-				tprintf("UI_GET_SYSNAME(%u)", _IOC_SIZE(code));
-				return 1;
-			}
-			return 0;
-		case 'j':
-			if (_IOC_DIR(code) == _IOC_READ && _IOC_NR(code) == 0x13) {
-				tprintf("JSIOCGNAME(%u)", _IOC_SIZE(code));
-				return 1;
-			}
-			return 0;
-		case 'k':
-			if (_IOC_DIR(code) == _IOC_WRITE && _IOC_NR(code) == 0) {
-				tprintf("SPI_IOC_MESSAGE(%u)", _IOC_SIZE(code));
-				return 1;
-			}
-			return 0;
-		default:
-			return 0;
-	}
-}
-
-static int
-ioctl_decode(struct tcb *tcp)
-{
-	const unsigned int code = tcp->u_arg[1];
-	const long arg = tcp->u_arg[2];
-
-	switch (_IOC_TYPE(code)) {
+	switch ((code >> 8) & 0xff) {
 #if defined(ALPHA) || defined(POWERPC)
-	case 'f': {
-		int ret = file_ioctl(tcp, code, arg);
-		if (ret != RVAL_DECODED)
-			return ret;
-	}
-	case 't':
-	case 'T':
-		return term_ioctl(tcp, code, arg);
+	case 'f': case 't': case 'T':
 #else /* !ALPHA */
-	case 'f':
-		return file_ioctl(tcp, code, arg);
 	case 0x54:
 #endif /* !ALPHA */
 		return term_ioctl(tcp, code, arg);
@@ -250,15 +84,10 @@ ioctl_decode(struct tcb *tcp)
 	case 'p':
 		return rtc_ioctl(tcp, code, arg);
 	case 0x03:
-		return hdio_ioctl(tcp, code, arg);
 	case 0x12:
 		return block_ioctl(tcp, code, arg);
-	case 'X':
-		return fs_x_ioctl(tcp, code, arg);
-#ifdef HAVE_SCSI_SG_H
 	case 0x22:
 		return scsi_ioctl(tcp, code, arg);
-#endif
 	case 'L':
 		return loop_ioctl(tcp, code, arg);
 	case 'M':
@@ -266,65 +95,56 @@ ioctl_decode(struct tcb *tcp)
 	case 'o':
 	case 'O':
 		return ubi_ioctl(tcp, code, arg);
-	case 'V':
-		return v4l2_ioctl(tcp, code, arg);
-	case '=':
-		return ptp_ioctl(tcp, code, arg);
-#ifdef HAVE_LINUX_INPUT_H
-	case 'E':
-		return evdev_ioctl(tcp, code, arg);
-#endif
-#ifdef HAVE_LINUX_USERFAULTFD_H
-	case 0xaa:
-		return uffdio_ioctl(tcp, code, arg);
-#endif
-#ifdef HAVE_LINUX_BTRFS_H
-	case 0x94:
-		return btrfs_ioctl(tcp, code, arg);
-#endif
 	default:
 		break;
 	}
 	return 0;
 }
 
-SYS_FUNC(ioctl)
-{
-	const struct_ioctlent *iop;
-	int ret;
-
-	if (entering(tcp)) {
-		printfd(tcp, tcp->u_arg[0]);
-		tprints(", ");
-		ret = ioctl_decode_command_number(tcp);
-		if (!(ret & IOCTL_NUMBER_STOP_LOOKUP)) {
-			iop = ioctl_lookup(tcp->u_arg[1]);
-			if (iop) {
-				if (ret)
-					tprints(" or ");
-				tprints(iop->symbol);
-				while ((iop = ioctl_next_match(iop)))
-					tprintf(" or %s", iop->symbol);
-			} else if (!ret) {
-				ioctl_print_code(tcp->u_arg[1]);
-			}
-		}
-		ret = ioctl_decode(tcp);
-	} else {
-		ret = ioctl_decode(tcp) | RVAL_DECODED;
-	}
-
-	if (ret & RVAL_DECODED) {
-		ret &= ~RVAL_DECODED;
-		if (ret)
-			--ret;
-		else
-			tprintf(", %#lx", tcp->u_arg[2]);
-		ret |= RVAL_DECODED;
-	} else {
-		if (ret)
-			--ret;
-	}
-
-	return ret;
-}
+/*
+ * Registry of ioctl characters, culled from
+ *	@(#)ioccom.h 1.7 89/06/16 SMI; from UCB ioctl.h 7.1 6/4/86
+ *
+ * char	file where defined		notes
+ * ----	------------------		-----
+ *   F	sun/fbio.h
+ *   G	sun/gpio.h
+ *   H	vaxif/if_hy.h
+ *   M	sundev/mcpcmd.h			*overlap*
+ *   M	sys/modem.h			*overlap*
+ *   S	sys/stropts.h
+ *   T	sys/termio.h			-no overlap-
+ *   T	sys/termios.h			-no overlap-
+ *   V	sundev/mdreg.h
+ *   a	vaxuba/adreg.h
+ *   d	sun/dkio.h			-no overlap with sys/des.h-
+ *   d	sys/des.h			(possible overlap)
+ *   d	vax/dkio.h			(possible overlap)
+ *   d	vaxuba/rxreg.h			(possible overlap)
+ *   f	sys/filio.h
+ *   g	sunwindow/win_ioctl.h		-no overlap-
+ *   g	sunwindowdev/winioctl.c		!no manifest constant! -no overlap-
+ *   h	sundev/hrc_common.h
+ *   i	sys/sockio.h			*overlap*
+ *   i	vaxuba/ikreg.h			*overlap*
+ *   k	sundev/kbio.h
+ *   m	sundev/msio.h			(possible overlap)
+ *   m	sundev/msreg.h			(possible overlap)
+ *   m	sys/mtio.h			(possible overlap)
+ *   n	sun/ndio.h
+ *   p	net/nit_buf.h			(possible overlap)
+ *   p	net/nit_if.h			(possible overlap)
+ *   p	net/nit_pf.h			(possible overlap)
+ *   p	sundev/fpareg.h			(possible overlap)
+ *   p	sys/sockio.h			(possible overlap)
+ *   p	vaxuba/psreg.h			(possible overlap)
+ *   q	sun/sqz.h
+ *   r	sys/sockio.h
+ *   s	sys/sockio.h
+ *   t	sys/ttold.h			(possible overlap)
+ *   t	sys/ttycom.h			(possible overlap)
+ *   v	sundev/vuid_event.h		*overlap*
+ *   v	sys/vcmd.h			*overlap*
+ *
+ * End of Registry
+ */

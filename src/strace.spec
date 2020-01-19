@@ -1,17 +1,15 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
-Version: 4.12
+Version: 4.8
 Release: 1%{?dist}
-%define srcname %name-%version
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
-Source: http://downloads.sourceforge.net/strace/%{srcname}.tar.xz
-BuildRequires: time
-%ifarch x86_64
-# for experimental -k option
-BuildRequires: libunwind-devel
-%endif
+Source: http://downloads.sourceforge.net/strace/%{name}-%{version}.tar.xz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires: libacl-devel, libaio-devel, time
+
 %define strace64_arches ppc64 sparc64
 
 %description
@@ -44,23 +42,14 @@ The `strace' program in the `strace' package is for 32-bit processes.
 %endif
 
 %prep
-%setup -q -n %{srcname}
+%setup -q
 
 %build
-echo 'BEGIN OF BUILD ENVIRONMENT INFORMATION'
-uname -a |head -1
-libc="$(ldd /bin/sh |sed -n 's|^[^/]*\(/[^ ]*/libc\.so[^ ]*\).*|\1|p' |head -1)"
-$libc |head -1
-file -L /bin/sh
-gcc --version |head -1
-kver="$(echo -e '#include <linux/version.h>\nLINUX_VERSION_CODE' | gcc -E -P -)"
-printf 'kernel-headers %%s.%%s.%%s\n' $(($kver/65536)) $(($kver/256%%256)) $(($kver%%256))
-echo 'END OF BUILD ENVIRONMENT INFORMATION'
-
 %configure
 make %{?_smp_mflags}
 
 %install
+rm -rf %{buildroot}
 make DESTDIR=%{buildroot} install
 
 # remove unpackaged files from the buildroot
@@ -78,12 +67,13 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %endif
 
 %check
-make %{?_smp_mflags} -k check VERBOSE=1
-echo 'BEGIN OF TEST SUITE INFORMATION'
-tail -n 99999 -- tests*/test-suite.log tests*/ksysent.log
-echo 'END OF TEST SUITE INFORMATION'
+make check
+
+%clean
+rm -rf %{buildroot}
 
 %files
+%defattr(-,root,root)
 %doc CREDITS ChangeLog ChangeLog-CVS COPYING NEWS README
 %{_bindir}/strace
 %{_bindir}/strace-log-merge
@@ -91,62 +81,11 @@ echo 'END OF TEST SUITE INFORMATION'
 
 %ifarch %{strace64_arches}
 %files -n strace64
+%defattr(-,root,root)
 %{_bindir}/strace64
 %endif
 
 %changelog
-* Tue May 31 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.12-1
-- 4.11.0.163.9720 -> 4.12.
-
-* Fri Feb 05 2016 Fedora Release Engineering <releng@fedoraproject.org> - 4.11.0.163.9720-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
-
-* Fri Jan 15 2016 Dmitry V. Levin <ldv@altlinux.org> - 4.11.0.163.9720-1
-- New upstream snapshot v4.11-163-g972018f:
-  + fixed decoding of syscalls unknown to the kernel on s390/s390x (#1298294).
-
-* Wed Dec 23 2015 Dmitry V. Levin <ldv@altlinux.org> - 4.11-2
-- Enabled experimental -k option on x86_64 (#1170296).
-
-* Mon Dec 21 2015 Dmitry V. Levin <ldv@altlinux.org> - 4.11-1
-- New upstream release:
-  + print nanoseconds along with seconds in stat family syscalls (#1251176).
-
-* Fri Jun 19 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.10-3
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
-
-* Mon May 11 2015 Marcin Juszkiewicz <mjuszkiewicz@redhat.com> - 4.10-2
-- Backport set of upstream patches to get it buildable on AArch64
-
-* Fri Mar 06 2015 Dmitry V. Levin <ldv@altlinux.org> - 4.10-1
-- New upstream release:
-  + enhanced ioctl decoding (#902788).
-
-* Mon Nov 03 2014 Lubomir Rintel <lkundrak@v3.sk> - 4.9-3
-- Regenerate ioctl entries with proper kernel headers
-
-* Mon Aug 18 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.9-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
-
-* Fri Aug 15 2014 Dmitry V. Levin <ldv@altlinux.org> - 4.9-1
-- New upstream release:
-  + fixed build when <sys/ptrace.h> and <linux/ptrace.h> conflict (#993384);
-  + updated CLOCK_* constants (#1088455);
-  + enabled ppc64le support (#1122323);
-  + fixed attach to a process on ppc64le (#1129569).
-
-* Fri Jul 25 2014 Dan Horák <dan[at]danny.cz> - 4.8-5
-- update for ppc64
-
-* Sun Jun 08 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.8-4
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
-
-* Fri Dec  6 2013 Peter Robinson <pbrobinson@fedoraproject.org> 4.8-3
-- Fix FTBFS
-
-* Sun Aug 04 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.8-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
-
 * Mon Jun 03 2013 Dmitry V. Levin <ldv@altlinux.org> - 4.8-1
 - New upstream release:
   + fixed ERESTARTNOINTR leaking to userspace on ancient kernels (#659382);
@@ -361,7 +300,7 @@ echo 'END OF TEST SUITE INFORMATION'
 * Thu Jul 17 2003 Roland McGrath <roland@redhat.com> 4.4.99-1
 - new upstream version, groks more new system calls, PF_INET6 sockets
 
-* Tue Jun 10 2003 Roland McGrath <roland@redhat.com> 4.4.98-1
+* Mon Jun 10 2003 Roland McGrath <roland@redhat.com> 4.4.98-1
 - new upstream version, more fixes (#90754, #91085)
 
 * Wed Jun 04 2003 Elliot Lee <sopwith@redhat.com>
@@ -454,7 +393,7 @@ echo 'END OF TEST SUITE INFORMATION'
 * Fri Jan 19 2001 Bill Nottingham <notting@redhat.com>
 - update to CVS, reintegrate ia64 support
 
-* Fri Dec  8 2000 Bernhard Rosenkraenzer <bero@redhat.com>
+* Sat Dec  8 2000 Bernhard Rosenkraenzer <bero@redhat.com>
 - Get S/390 support into the normal package
 
 * Sat Nov 18 2000 Florian La Roche <Florian.LaRoche@redhat.de>

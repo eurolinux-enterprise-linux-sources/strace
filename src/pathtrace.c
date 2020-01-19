@@ -28,7 +28,12 @@
 
 #include "defs.h"
 #include <sys/param.h>
-#include <poll.h>
+#ifdef HAVE_POLL_H
+# include <poll.h>
+#endif
+#ifdef HAVE_SYS_POLL_H
+# include <sys/poll.h>
+#endif
 
 #include "syscall.h"
 
@@ -76,7 +81,7 @@ fdmatch(struct tcb *tcp, int fd)
 
 /*
  * Add a path to the set we're tracing.
- * Specifying NULL will delete all paths.
+ * Secifying NULL will delete all paths.
  */
 static void
 storepath(const char *path)
@@ -87,8 +92,9 @@ storepath(const char *path)
 		return; /* already in table */
 
 	i = num_selected++;
-	paths_selected = xreallocarray(paths_selected, num_selected,
-				       sizeof(paths_selected[0]));
+	paths_selected = realloc(paths_selected, num_selected * sizeof(paths_selected[0]));
+	if (!paths_selected)
+		die_out_of_memory();
 	paths_selected[i] = path;
 }
 
@@ -137,7 +143,8 @@ pathtrace_select(const char *path)
 		return;
 	}
 
-	error_msg("Requested path '%s' resolved into '%s'", path, rpath);
+	fprintf(stderr, "Requested path '%s' resolved into '%s'\n",
+		path, rpath);
 	storepath(rpath);
 }
 
@@ -152,7 +159,7 @@ pathtrace_match(struct tcb *tcp)
 
 	s = tcp->s_ent;
 
-	if (!(s->sys_flags & (TRACE_FILE | TRACE_DESC | TRACE_NETWORK)))
+	if (!(s->sys_flags & (TRACE_FILE | TRACE_DESC)))
 		return 0;
 
 	/*
@@ -160,142 +167,145 @@ pathtrace_match(struct tcb *tcp)
 	 * other than test arg[0].
 	 */
 
-	switch (s->sen) {
-	case SEN_dup2:
-	case SEN_dup3:
-	case SEN_kexec_file_load:
-	case SEN_sendfile:
-	case SEN_sendfile64:
-	case SEN_tee:
+	if (s->sys_func == sys_dup2 ||
+	    s->sys_func == sys_dup3 ||
+	    s->sys_func == sys_sendfile ||
+	    s->sys_func == sys_sendfile64 ||
+	    s->sys_func == sys_tee)
+	{
 		/* fd, fd */
 		return fdmatch(tcp, tcp->u_arg[0]) ||
 			fdmatch(tcp, tcp->u_arg[1]);
+	}
 
-	case SEN_faccessat:
-	case SEN_fchmodat:
-	case SEN_fchownat:
-	case SEN_futimesat:
-	case SEN_inotify_add_watch:
-	case SEN_mkdirat:
-	case SEN_mknodat:
-	case SEN_name_to_handle_at:
-	case SEN_newfstatat:
-	case SEN_openat:
-	case SEN_readlinkat:
-	case SEN_unlinkat:
-	case SEN_utimensat:
+	if (s->sys_func == sys_inotify_add_watch ||
+	    s->sys_func == sys_faccessat ||
+	    s->sys_func == sys_fchmodat ||
+	    s->sys_func == sys_futimesat ||
+	    s->sys_func == sys_mkdirat ||
+	    s->sys_func == sys_unlinkat ||
+	    s->sys_func == sys_newfstatat ||
+	    s->sys_func == sys_mknodat ||
+	    s->sys_func == sys_openat ||
+	    s->sys_func == sys_readlinkat ||
+	    s->sys_func == sys_utimensat ||
+	    s->sys_func == sys_fchownat ||
+	    s->sys_func == sys_pipe2)
+	{
 		/* fd, path */
 		return fdmatch(tcp, tcp->u_arg[0]) ||
 			upathmatch(tcp, tcp->u_arg[1]);
+	}
 
-	case SEN_link:
-	case SEN_mount:
-	case SEN_pivotroot:
+	if (s->sys_func == sys_link ||
+	    s->sys_func == sys_mount)
+	{
 		/* path, path */
 		return upathmatch(tcp, tcp->u_arg[0]) ||
 			upathmatch(tcp, tcp->u_arg[1]);
+	}
 
-	case SEN_quotactl:
+	if (s->sys_func == sys_quotactl)
+	{
 		/* x, path */
 		return upathmatch(tcp, tcp->u_arg[1]);
+	}
 
-	case SEN_linkat:
-	case SEN_renameat2:
-	case SEN_renameat:
+	if (s->sys_func == sys_renameat ||
+	    s->sys_func == sys_linkat)
+	{
 		/* fd, path, fd, path */
 		return fdmatch(tcp, tcp->u_arg[0]) ||
 			fdmatch(tcp, tcp->u_arg[2]) ||
 			upathmatch(tcp, tcp->u_arg[1]) ||
 			upathmatch(tcp, tcp->u_arg[3]);
+	}
 
-	case SEN_old_mmap:
+	if (
+	    s->sys_func == sys_old_mmap ||
 #if defined(S390)
-	case SEN_old_mmap_pgoff:
+	    s->sys_func == sys_old_mmap_pgoff ||
 #endif
-	case SEN_mmap:
-	case SEN_mmap_4koff:
-	case SEN_mmap_pgoff:
-	case SEN_ARCH_mmap:
+	    s->sys_func == sys_mmap ||
+	    s->sys_func == sys_mmap_pgoff ||
+	    s->sys_func == sys_mmap_4koff
+	) {
 		/* x, x, x, x, fd */
 		return fdmatch(tcp, tcp->u_arg[4]);
+	}
 
-	case SEN_symlinkat:
+	if (s->sys_func == sys_symlinkat) {
 		/* path, fd, path */
 		return fdmatch(tcp, tcp->u_arg[1]) ||
 			upathmatch(tcp, tcp->u_arg[0]) ||
 			upathmatch(tcp, tcp->u_arg[2]);
+	}
 
-	case SEN_copy_file_range:
-	case SEN_splice:
-		/* fd, x, fd, x, x, x */
+	if (s->sys_func == sys_splice) {
+		/* fd, x, fd, x, x */
 		return fdmatch(tcp, tcp->u_arg[0]) ||
 			fdmatch(tcp, tcp->u_arg[2]);
+	}
 
-	case SEN_epoll_ctl:
+	if (s->sys_func == sys_epoll_ctl) {
 		/* x, x, fd, x */
 		return fdmatch(tcp, tcp->u_arg[2]);
+	}
 
-
-	case SEN_fanotify_mark:
-		/* x, x, x, fd, path */
-		return fdmatch(tcp, tcp->u_arg[3]) ||
-			upathmatch(tcp, tcp->u_arg[4]);
-
-	case SEN_oldselect:
-	case SEN_pselect6:
-	case SEN_select:
+	if (s->sys_func == sys_select ||
+	    s->sys_func == sys_oldselect ||
+	    s->sys_func == sys_pselect6)
 	{
 		int     i, j;
-		int     nfds;
+		unsigned nfds;
 		long   *args, oldargs[5];
 		unsigned fdsize;
 		fd_set *fds;
 
-		args = tcp->u_arg;
-		if (SEN_oldselect == s->sen) {
+		if (s->sys_func == sys_oldselect) {
 			if (umoven(tcp, tcp->u_arg[0], sizeof oldargs,
-				   oldargs) < 0)
+				   (char*) oldargs) < 0)
 			{
-				error_msg("umoven() failed");
+				fprintf(stderr, "umoven() failed\n");
 				return 0;
 			}
 			args = oldargs;
-		}
+		} else
+			args = tcp->u_arg;
 
-		/* Kernel truncates arg[0] to int, we do the same. */
-		nfds = (int) args[0];
-		/* Kernel rejects negative nfds, so we don't parse it either. */
-		if (nfds <= 0)
-			return 0;
+		nfds = args[0];
 		/* Beware of select(2^31-1, NULL, NULL, NULL) and similar... */
-		if (nfds > 1024*1024)
+		if (args[0] > 1024*1024)
 			nfds = 1024*1024;
-		fdsize = (((nfds + 7) / 8) + current_wordsize-1) & -current_wordsize;
-		fds = xmalloc(fdsize);
+		if (args[0] < 0)
+			nfds = 0;
+		fdsize = ((((nfds + 7) / 8) + sizeof(long) - 1)
+			  & -sizeof(long));
+		fds = malloc(fdsize);
+		if (!fds)
+			die_out_of_memory();
 
 		for (i = 1; i <= 3; ++i) {
 			if (args[i] == 0)
 				continue;
-			if (umoven(tcp, args[i], fdsize, fds) < 0) {
-				error_msg("umoven() failed");
+
+			if (umoven(tcp, args[i], fdsize, (char *) fds) < 0) {
+				fprintf(stderr, "umoven() failed\n");
 				continue;
 			}
-			for (j = 0;; j++) {
-				j = next_set_bit(fds, j, nfds);
-				if (j < 0)
-					break;
-				if (fdmatch(tcp, j)) {
+
+			for (j = 0; j < nfds; ++j)
+				if (FD_ISSET(j, fds) && fdmatch(tcp, j)) {
 					free(fds);
 					return 1;
 				}
-			}
 		}
 		free(fds);
 		return 0;
 	}
 
-	case SEN_poll:
-	case SEN_ppoll:
+	if (s->sys_func == sys_poll ||
+	    s->sys_func == sys_ppoll)
 	{
 		struct pollfd fds;
 		unsigned nfds;
@@ -310,34 +320,28 @@ pathtrace_match(struct tcb *tcp)
 			return 0;
 
 		for (cur = start; cur < end; cur += sizeof(fds))
-			if ((umoven(tcp, cur, sizeof fds, &fds) == 0)
+			if ((umoven(tcp, cur, sizeof fds, (char *) &fds) == 0)
 			    && fdmatch(tcp, fds.fd))
 				return 1;
 
 		return 0;
 	}
 
-	case SEN_bpf:
-	case SEN_epoll_create:
-	case SEN_epoll_create1:
-	case SEN_eventfd2:
-	case SEN_eventfd:
-	case SEN_fanotify_init:
-	case SEN_inotify_init1:
-	case SEN_memfd_create:
-	case SEN_perf_event_open:
-	case SEN_pipe:
-	case SEN_pipe2:
-	case SEN_printargs:
-	case SEN_socket:
-	case SEN_socketpair:
-	case SEN_timerfd_create:
-	case SEN_timerfd_gettime:
-	case SEN_timerfd_settime:
-	case SEN_userfaultfd:
+	if (s->sys_func == printargs ||
+	    s->sys_func == sys_pipe ||
+	    s->sys_func == sys_pipe2 ||
+	    s->sys_func == sys_eventfd2 ||
+	    s->sys_func == sys_eventfd ||
+	    s->sys_func == sys_inotify_init1 ||
+	    s->sys_func == sys_timerfd_create ||
+	    s->sys_func == sys_timerfd_settime ||
+	    s->sys_func == sys_timerfd_gettime ||
+	    s->sys_func == sys_epoll_create ||
+	    strcmp(s->sys_name, "fanotify_init") == 0)
+	{
 		/*
-		 * These have TRACE_FILE or TRACE_DESCRIPTOR or TRACE_NETWORK set,
-		 * but they don't have any file descriptor or path args to test.
+		 * These have TRACE_FILE or TRACE_DESCRIPTOR set, but they
+		 * don't have any file descriptor or path args to test.
 		 */
 		return 0;
 	}
@@ -350,7 +354,7 @@ pathtrace_match(struct tcb *tcp)
 	if (s->sys_flags & TRACE_FILE)
 		return upathmatch(tcp, tcp->u_arg[0]);
 
-	if (s->sys_flags & (TRACE_DESC | TRACE_NETWORK))
+	if (s->sys_flags & TRACE_DESC)
 		return fdmatch(tcp, tcp->u_arg[0]);
 
 	return 0;

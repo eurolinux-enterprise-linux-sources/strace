@@ -30,49 +30,173 @@
 
 #include "defs.h"
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/utsname.h>
+#include <sys/user.h>
 
-#include "xlat/delete_module_flags.h"
+/* Bits of module.flags.  */
 
-SYS_FUNC(create_module)
+#define MOD_UNINITIALIZED	0
+#define MOD_RUNNING		1
+#define MOD_DELETED		2
+#define MOD_AUTOCLEAN		4
+#define MOD_VISITED		8
+#define MOD_USED_ONCE		16
+#define MOD_JUST_FREED		32
+#define MOD_INITIALIZING	64
+
+/* Values for query_module's which.  */
+
+#define QM_MODULES	1
+#define QM_DEPS		2
+#define QM_REFS		3
+#define QM_SYMBOLS	4
+#define QM_INFO		5
+
+struct module_symbol
 {
-	printpath(tcp, tcp->u_arg[0]);
-	tprintf(", %lu", tcp->u_arg[1]);
+	unsigned long value;
+	const char *name;
+};
 
-	return RVAL_DECODED | RVAL_HEX;
+struct module_info
+{
+	unsigned long addr;
+	unsigned long size;
+	unsigned long flags;
+	long usecount;
+};
+
+static const struct xlat which[] = {
+	{ 0,		"0"		},
+	{ QM_MODULES,	"QM_MODULES"	},
+	{ QM_DEPS,	"QM_DEPS"	},
+	{ QM_REFS,	"QM_REFS"	},
+	{ QM_SYMBOLS,	"QM_SYMBOLS"	},
+	{ QM_INFO,	"QM_INFO"	},
+	{ 0,		NULL		},
+};
+
+static const struct xlat modflags[] = {
+	{ MOD_UNINITIALIZED,	"MOD_UNINITIALIZED"	},
+	{ MOD_RUNNING,		"MOD_RUNNING"		},
+	{ MOD_DELETED,		"MOD_DELETED"		},
+	{ MOD_AUTOCLEAN,	"MOD_AUTOCLEAN"		},
+	{ MOD_VISITED,		"MOD_VISITED"		},
+	{ MOD_USED_ONCE,	"MOD_USED_ONCE"		},
+	{ MOD_JUST_FREED,	"MOD_JUST_FREED"	},
+	{ 0,			NULL			},
+};
+
+int
+sys_query_module(struct tcb *tcp)
+{
+	if (entering(tcp)) {
+		printstr(tcp, tcp->u_arg[0], -1);
+		tprints(", ");
+		printxval(which, tcp->u_arg[1], "QM_???");
+		tprints(", ");
+	} else {
+		size_t ret;
+
+		if (!verbose(tcp) || syserror(tcp) ||
+		    umove(tcp, tcp->u_arg[4], &ret) < 0) {
+			tprintf("%#lx, %lu, %#lx", tcp->u_arg[2],
+				tcp->u_arg[3], tcp->u_arg[4]);
+		} else if (tcp->u_arg[1]==QM_INFO) {
+			struct module_info	mi;
+			if (umove(tcp, tcp->u_arg[2], &mi) < 0) {
+				tprintf("%#lx, ", tcp->u_arg[2]);
+			} else {
+				tprintf("{address=%#lx, size=%lu, flags=",
+					mi.addr, mi.size);
+				printflags(modflags, mi.flags, "MOD_???");
+				tprintf(", usecount=%lu}, ", mi.usecount);
+			}
+			tprintf("%lu", (unsigned long)ret);
+		} else if ((tcp->u_arg[1]==QM_MODULES) ||
+			   (tcp->u_arg[1]==QM_DEPS) ||
+			   (tcp->u_arg[1]==QM_REFS)) {
+			tprints("{");
+			if (!abbrev(tcp)) {
+				char*	data	= malloc(tcp->u_arg[3]);
+				char*	mod	= data;
+				size_t	idx;
+
+				if (!data) {
+					fprintf(stderr, "out of memory\n");
+					tprintf(" /* %lu entries */ ", (unsigned long)ret);
+				} else {
+					if (umoven(tcp, tcp->u_arg[2],
+						tcp->u_arg[3], data) < 0) {
+						tprintf(" /* %lu entries */ ", (unsigned long)ret);
+					} else {
+						for (idx = 0; idx < ret; idx++) {
+							tprintf("%s%s",
+								(idx ? ", " : ""),
+								mod);
+							mod += strlen(mod)+1;
+						}
+					}
+					free(data);
+				}
+			} else
+				tprintf(" /* %lu entries */ ", (unsigned long)ret);
+			tprintf("}, %lu", (unsigned long)ret);
+		} else if (tcp->u_arg[1]==QM_SYMBOLS) {
+			tprints("{");
+			if (!abbrev(tcp)) {
+				char*			data	= malloc(tcp->u_arg[3]);
+				struct module_symbol*	sym	= (struct module_symbol*)data;
+				size_t			idx;
+
+				if (!data) {
+					fprintf(stderr, "out of memory\n");
+					tprintf(" /* %lu entries */ ", (unsigned long)ret);
+				} else {
+					if (umoven(tcp, tcp->u_arg[2],
+						tcp->u_arg[3], data) < 0) {
+						tprintf(" /* %lu entries */ ", (unsigned long)ret);
+					} else {
+						for (idx = 0; idx < ret; idx++) {
+							tprintf("%s{name=%s, value=%lu}",
+								(idx ? " " : ""),
+								data+(long)sym->name,
+								sym->value);
+							sym++;
+						}
+					}
+					free(data);
+				}
+			} else
+				tprintf(" /* %lu entries */ ", (unsigned long)ret);
+			tprintf("}, %ld", (unsigned long)ret);
+		} else {
+			printstr(tcp, tcp->u_arg[2], tcp->u_arg[3]);
+			tprintf(", %#lx", tcp->u_arg[4]);
+		}
+	}
+	return 0;
 }
 
-SYS_FUNC(delete_module)
+int
+sys_create_module(struct tcb *tcp)
 {
-	printstr(tcp, tcp->u_arg[0], -1);
-	tprints(", ");
-	printflags(delete_module_flags, tcp->u_arg[1], "O_???");
-
-	return RVAL_DECODED;
+	if (entering(tcp)) {
+		printpath(tcp, tcp->u_arg[0]);
+		tprintf(", %lu", tcp->u_arg[1]);
+	}
+	return RVAL_HEX;
 }
 
-SYS_FUNC(init_module)
+int
+sys_init_module(struct tcb *tcp)
 {
-	tprintf("%#lx, %lu, ", tcp->u_arg[0], tcp->u_arg[1]);
-	printstr(tcp, tcp->u_arg[2], -1);
-
-	return RVAL_DECODED;
-}
-
-#define MODULE_INIT_IGNORE_MODVERSIONS  1
-#define MODULE_INIT_IGNORE_VERMAGIC     2
-
-#include "xlat/module_init_flags.h"
-
-SYS_FUNC(finit_module)
-{
-	/* file descriptor */
-	printfd(tcp, tcp->u_arg[0]);
-	tprints(", ");
-	/* param_values */
-	printstr(tcp, tcp->u_arg[1], -1);
-	tprints(", ");
-	/* flags */
-	printflags(module_init_flags, tcp->u_arg[2], "MODULE_INIT_???");
-
-	return RVAL_DECODED;
+	if (entering(tcp)) {
+		tprintf("%#lx, %lu, ", tcp->u_arg[0], tcp->u_arg[1]);
+		printstr(tcp, tcp->u_arg[2], -1);
+	}
+	return 0;
 }

@@ -1,1 +1,1 @@
-#include "errnoent.h"
+#include "../sparc/errnoent1.h"

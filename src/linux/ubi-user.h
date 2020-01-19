@@ -307,7 +307,7 @@ struct ubi_mkvol_req {
 	__s16 name_len;
 	__s8 padding2[4];
 	char name[UBI_MAX_VOLUME_NAME + 1];
-} ATTRIBUTE_PACKED;
+} __attribute__((packed));
 
 /**
  * struct ubi_rsvol_req - a data structure used in volume re-size requests.
@@ -323,7 +323,7 @@ struct ubi_mkvol_req {
 struct ubi_rsvol_req {
 	__s64 bytes;
 	__s32 vol_id;
-} ATTRIBUTE_PACKED;
+} __attribute__((packed));
 
 /**
  * struct ubi_rnvol_req - volumes re-name request.
@@ -365,7 +365,7 @@ struct ubi_rnvol_req {
 		__s8  padding2[2];
 		char    name[UBI_MAX_VOLUME_NAME + 1];
 	} ents[UBI_MAX_RNVOL];
-} ATTRIBUTE_PACKED;
+} __attribute__((packed));
 
 /**
  * struct ubi_leb_change_req - a data structure used in atomic LEB change
@@ -389,7 +389,7 @@ struct ubi_leb_change_req {
 	__s32 bytes;
 	__s8  dtype; /* obsolete, do not use! */
 	__s8  padding[7];
-} ATTRIBUTE_PACKED;
+} __attribute__((packed));
 
 /**
  * struct ubi_map_req - a data structure used in map LEB requests.
@@ -401,7 +401,7 @@ struct ubi_map_req {
 	__s32 lnum;
 	__s8  dtype; /* obsolete, do not use! */
 	__s8  padding[3];
-} ATTRIBUTE_PACKED;
+} __attribute__((packed));
 
 
 /**
@@ -415,6 +415,6 @@ struct ubi_set_vol_prop_req {
 	__u8  property;
 	__u8  padding[7];
 	__u64 value;
-}  ATTRIBUTE_PACKED;
+}  __attribute__((packed));
 
 #endif /* __UBI_USER_H__ */

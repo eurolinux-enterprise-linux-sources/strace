@@ -30,4 +30,3 @@
 	"SIGPROF",	/* 29 */
 	"SIGXCPU",	/* 30 */
 	"SIGXFSZ",	/* 31 */
-	"SIGRTMIN",	/* 32 */

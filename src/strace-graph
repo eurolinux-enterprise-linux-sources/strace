@@ -33,19 +33,14 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use strict;
-use warnings;
-
 my %unfinished;
-my $floatform;
 
 # Scales for strace slowdown.  Make configurable!
 my $scale_factor = 3.5;
 
 while (<>) {
-    my ($pid, $call, $args, $result, $time, $time_spent);
+    my ($pid, $call, $args, $result, $time);
     chop;
-    $floatform = 0;
 
     s/^(\d+)\s+//;
     $pid = $1;
@@ -75,7 +70,7 @@ while (<>) {
 	delete $unfinished{$pid};
     }
 
-    if (/^--- SIG(\S+) (.*) ---$/) {
+    if (/^--- SIG(\S+) \(.*\) ---$/) {
 	# $pid received signal $1
 	# currently we don't do anything with this
 	next;
@@ -87,16 +82,7 @@ while (<>) {
 	next;
     }
 
-    if (/^\+\+\+ exited with (\d+) \+\+\+$/) {
-	# $pid exited $1
-	# currently we don't do anything with this
-	next;
-    }
-
     ($call, $args, $result) = /(\S+)\((.*)\)\s+= (.*)$/;
-    if ($result =~ /^(.*) <([0-9.]*)>$/) {
-	($result, $time_spent) = ($1, $2);
-    }
     unless (defined $result) {
 	print STDERR "$0: $ARGV: $.: cannot parse line.\n";
 	next;
@@ -133,14 +119,13 @@ sub parse_one {
     my ($in) = @_;
 
     if ($in =~ s/^\"//) {
-	my $tmp;
 	($tmp, $in) = parse_str($in);
 	if (not defined $tmp) {
 	    print STDERR "$0: $ARGV: $.: cannot parse string.\n";
 	    return (undef, $in);
 	}
 	return ($tmp, $in);
-    } elsif ($in =~ s/^0x([[:xdigit:]]+)//) {
+    } elsif ($in =~ s/^0x(\x+)//) {
 	return (hex $1, $in);
     } elsif ($in =~ s/^(\d+)//) {
 	return (int $1, $in);
@@ -212,7 +197,7 @@ my $depth = "";
 # process info, indexed by pid.
 # fields:
 #    parent         pid number
-#    seq            clones, forks and execs for this pid, in sequence  (array)
+#    seq            forks and execs for this pid, in sequence  (array)
 
 #  filename and argv (from latest exec)
 #  basename (derived from filename)
@@ -229,10 +214,10 @@ sub handle_trace {
     }
 
     if ($call eq 'execve') {
-	return if $result ne '0';
+	return if $result != 0;
 
 	my ($filename, $argv) = parseargs($args);
-	my ($basename) = $filename =~ m/([^\/]*)$/;
+	($basename) = $filename =~ m/([^\/]*)$/;
 	if ($basename ne $$argv[0]) {
 	    $$argv[0] = "$basename($$argv[0])";
         }
@@ -250,8 +235,7 @@ sub handle_trace {
 	push @$seq, ['FORK', $result];
 	$pr{$pid}{seq} = $seq;
 	$pr{$result}{parent} = $pid;
-	$pr{$result}{seq} = [];
-    } elsif ($call eq '_exit' || $call eq 'exit_group') {
+    } elsif ($call eq '_exit') {
 	$pr{$pid}{end} = $time if defined $time;
     }
 }
@@ -265,7 +249,7 @@ sub straight_seq {
     my ($pid) = @_;
     my $seq = $pr{$pid}{seq};
 
-    for my $elem (@$seq) {
+    for $elem (@$seq) {
 	if ($$elem[0] eq 'EXEC') {
 	    my $argv = $$elem[2];
 	    print "$$elem[0] $$elem[1] @$argv\n";
@@ -281,7 +265,7 @@ sub first_exec {
     my ($pid) = @_;
     my $seq = $pr{$pid}{seq};
 
-    for my $elem (@$seq) {
+    for $elem (@$seq) {
 	if ($$elem[0] eq 'EXEC') {
 	    return $elem;
 	}
@@ -309,15 +293,15 @@ sub display_pid_trace {
 	}
     }
 
-    for my $elem (@seq) {
+    for $elem (@seq) {
 	$i++;
 	if ($$elem[0] eq 'EXEC') {
 	    my $argv = $$elem[2];
 	    if (defined $elapsed) {
-		print "$lead [$elapsed] $pid @$argv\n";
+		print "$lead [$elapsed] @$argv\n";
 		undef $elapsed;
 	    } else {
-		print "$lead $pid @$argv\n";
+		print "$lead @$argv\n";
 	    }
 	} elsif ($$elem[0] eq 'FORK') {
 	    if ($i == 1) {

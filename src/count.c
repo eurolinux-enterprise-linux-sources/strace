@@ -37,7 +37,7 @@
 
 /* Per-syscall stats structure */
 struct call_counts {
-	/* time may be total latency or system time */
+	/* system time spent in syscall (not wall clock time) */
 	struct timeval time;
 	int calls, errors;
 };
@@ -47,19 +47,21 @@ static struct call_counts *countv[SUPPORTED_PERSONALITIES];
 
 static struct timeval shortest = { 1000000, 0 };
 
+/* On entry, tv is syscall exit timestamp */
 void
-count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
+count_syscall(struct tcb *tcp, struct timeval *tv)
 {
-	struct timeval wtv;
-	struct timeval *tv = &wtv;
 	struct call_counts *cc;
 	unsigned long scno = tcp->scno;
 
 	if (!SCNO_IN_RANGE(scno))
 		return;
 
-	if (!counts)
-		counts = xcalloc(nsyscalls, sizeof(*counts));
+	if (!counts) {
+		counts = calloc(nsyscalls, sizeof(*counts));
+		if (!counts)
+			die_out_of_memory();
+	}
 	cc = &counts[scno];
 
 	cc->calls++;
@@ -67,7 +69,7 @@ count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 		cc->errors++;
 
 	/* tv = wall clock time spent while in syscall */
-	tv_sub(tv, syscall_exiting_tv, &tcp->etime);
+	tv_sub(tv, tv, &tcp->etime);
 
 	/* Spent more wall clock time than spent system time? (usually yes) */
 	if (tv_cmp(tv, &tcp->dtime) > 0) {
@@ -88,18 +90,18 @@ count_syscall(struct tcb *tcp, const struct timeval *syscall_exiting_tv)
 
 		if (tv_nz(&tcp->dtime))
 			/* tv = system time spent, if it isn't 0 */
-			tv = &tcp->dtime;
+			*tv = tcp->dtime;
 		else if (tv_cmp(tv, &one_tick) > 0) {
 			/* tv = smallest "sane" time interval */
 			if (tv_cmp(&shortest, &one_tick) < 0)
-				tv = &shortest;
+				*tv = shortest;
 			else
-				tv = &one_tick;
+				*tv = one_tick;
 		}
 	}
 	if (tv_cmp(tv, &shortest) < 0)
 		shortest = *tv;
-	tv_add(&cc->time, &cc->time, count_wallclock ? &wtv : tv);
+	tv_add(&cc->time, &cc->time, tv);
 }
 
 static int
@@ -112,9 +114,8 @@ time_cmp(void *a, void *b)
 static int
 syscall_cmp(void *a, void *b)
 {
-	const char *a_name = sysent[*((int *) a)].sys_name;
-	const char *b_name = sysent[*((int *) b)].sys_name;
-	return strcmp(a_name ? a_name : "", b_name ? b_name : "");
+	return strcmp(sysent[*((int *) a)].sys_name,
+		      sysent[*((int *) b)].sys_name);
 }
 
 static int
@@ -141,7 +142,7 @@ set_sortby(const char *sortby)
 	else if (strcmp(sortby, "nothing") == 0)
 		sortfun = NULL;
 	else {
-		error_msg_and_help("invalid sortby: '%s'", sortby);
+		error_msg_and_die("invalid sortby: '%s'", sortby);
 	}
 }
 
@@ -154,7 +155,7 @@ void set_overhead(int n)
 static void
 call_summary_pers(FILE *outf)
 {
-	unsigned int i;
+	int     i;
 	int     call_cum, error_cum;
 	struct timeval tv_cum, dtv;
 	double  float_tv_cum;
@@ -169,7 +170,9 @@ call_summary_pers(FILE *outf)
 	fprintf(outf, "%6.6s %11.11s %11.11s %9.9s %9.9s %s\n",
 		dashes, dashes, dashes, dashes, dashes, dashes);
 
-	sorted_count = xcalloc(sizeof(int), nsyscalls);
+	sorted_count = calloc(sizeof(int), nsyscalls);
+	if (!sorted_count)
+		die_out_of_memory();
 	call_cum = error_cum = tv_cum.tv_sec = tv_cum.tv_usec = 0;
 	if (overhead.tv_sec == -1) {
 		tv_mul(&overhead, &shortest, 8);
@@ -226,7 +229,7 @@ call_summary_pers(FILE *outf)
 void
 call_summary(FILE *outf)
 {
-	unsigned int i, old_pers = current_personality;
+	int i, old_pers = current_personality;
 
 	for (i = 0; i < SUPPORTED_PERSONALITIES; ++i) {
 		if (!countv[i])

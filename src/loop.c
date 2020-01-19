@@ -26,141 +26,144 @@
  */
 
 #include "defs.h"
-#include <linux/ioctl.h>
+
+#include <sys/ioctl.h>
+
 #include <linux/loop.h>
 
-#include "xlat/loop_flags_options.h"
-#include "xlat/loop_crypt_type_options.h"
+static const struct xlat loop_flags_options[] = {
+	{ LO_FLAGS_READ_ONLY,	"LO_FLAGS_READ_ONLY"	},
+#if HAVE_DECL_LO_FLAGS_AUTOCLEAR
+	{ LO_FLAGS_AUTOCLEAR,	"LO_FLAGS_AUTOCLEAR"	},
+#endif
+#if HAVE_DECL_LO_FLAGS_PARTSCAN
+	{ LO_FLAGS_PARTSCAN,	"LO_FLAGS_PARTSCAN"	},
+#endif
+	{ 0,			NULL			},
+};
 
-static void
-decode_loop_info(struct tcb *tcp, const long addr)
+static const struct xlat loop_crypt_type_options[] = {
+	{ LO_CRYPT_NONE,	"LO_CRYPT_NONE"		},
+	{ LO_CRYPT_XOR,		"LO_CRYPT_XOR"		},
+	{ LO_CRYPT_DES,		"LO_CRYPT_DES"		},
+	{ LO_CRYPT_FISH2,	"LO_CRYPT_FISH2"	},
+	{ LO_CRYPT_BLOW,	"LO_CRYPT_BLOW"		},
+	{ LO_CRYPT_CAST128,	"LO_CRYPT_CAST128"	},
+	{ LO_CRYPT_IDEA,	"LO_CRYPT_IDEA"		},
+	{ LO_CRYPT_DUMMY,	"LO_CRYPT_DUMMY"	},
+	{ LO_CRYPT_SKIPJACK,	"LO_CRYPT_SKIPJACK"	},
+	{ LO_CRYPT_CRYPTOAPI,	"LO_CRYPT_CRYPTOAPI"	},
+	{ 0,			NULL			},
+};
+
+int loop_ioctl(struct tcb *tcp, long code, long arg)
 {
 	struct loop_info info;
-
-	tprints(", ");
-	if (umove_or_printaddr(tcp, addr, &info))
-		return;
-
-	tprintf("{lo_number=%d", info.lo_number);
-
-	if (!abbrev(tcp)) {
-		tprintf(", lo_device=%#lx, lo_inode=%lu, lo_rdevice=%#lx",
-			(unsigned long) info.lo_device,
-			info.lo_inode,
-			(unsigned long) info.lo_rdevice);
-	}
-
-	tprintf(", lo_offset=%#x", info.lo_offset);
-
-	if (!abbrev(tcp) || info.lo_encrypt_type != LO_CRYPT_NONE) {
-		tprints(", lo_encrypt_type=");
-		printxval(loop_crypt_type_options, info.lo_encrypt_type,
-			"LO_CRYPT_???");
-		tprintf(", lo_encrypt_key_size=%d", info.lo_encrypt_key_size);
-	}
-
-	tprints(", lo_flags=");
-	printflags(loop_flags_options, info.lo_flags, "LO_FLAGS_???");
-
-	tprints(", lo_name=");
-	print_quoted_string(info.lo_name, LO_NAME_SIZE,
-			    QUOTE_0_TERMINATED);
-
-	if (!abbrev(tcp) || info.lo_encrypt_type != LO_CRYPT_NONE) {
-		tprints(", lo_encrypt_key=");
-		print_quoted_string((void *) info.lo_encrypt_key,
-				    LO_KEY_SIZE, 0);
-	}
-
-	if (!abbrev(tcp))
-		tprintf(", lo_init=[%#lx, %#lx]"
-			", reserved=[%#x, %#x, %#x, %#x]}",
-			info.lo_init[0], info.lo_init[1],
-			info.reserved[0], info.reserved[1],
-			info.reserved[2], info.reserved[3]);
-	else
-		tprints(", ...}");
-}
-
-static void
-decode_loop_info64(struct tcb *tcp, const long addr)
-{
 	struct loop_info64 info64;
+	char *s = alloca((LO_NAME_SIZE + LO_KEY_SIZE) * 4);
 
-	tprints(", ");
-	if (umove_or_printaddr(tcp, addr, &info64))
-		return;
-
-	if (!abbrev(tcp)) {
-		tprintf("{lo_device=%" PRIu64 ", lo_inode=%" PRIu64
-			", lo_rdevice=%" PRIu64 ", lo_offset=%#" PRIx64
-			", lo_sizelimit=%" PRIu64 ", lo_number=%" PRIu32,
-			(uint64_t) info64.lo_device,
-			(uint64_t) info64.lo_inode,
-			(uint64_t) info64.lo_rdevice,
-			(uint64_t) info64.lo_offset,
-			(uint64_t) info64.lo_sizelimit,
-			(uint32_t) info64.lo_number);
-	} else {
-		tprintf("{lo_offset=%#" PRIx64 ", lo_number=%" PRIu32,
-			(uint64_t) info64.lo_offset,
-			(uint32_t) info64.lo_number);
-	}
-
-	if (!abbrev(tcp) || info64.lo_encrypt_type != LO_CRYPT_NONE) {
-		tprints(", lo_encrypt_type=");
-		printxval(loop_crypt_type_options, info64.lo_encrypt_type,
-			"LO_CRYPT_???");
-		tprintf(", lo_encrypt_key_size=%" PRIu32,
-			info64.lo_encrypt_key_size);
-	}
-
-	tprints(", lo_flags=");
-	printflags(loop_flags_options, info64.lo_flags, "LO_FLAGS_???");
-
-	tprints(", lo_file_name=");
-	print_quoted_string((void *) info64.lo_file_name,
-			    LO_NAME_SIZE, QUOTE_0_TERMINATED);
-
-	if (!abbrev(tcp) || info64.lo_encrypt_type != LO_CRYPT_NONE) {
-		tprints(", lo_crypt_name=");
-		print_quoted_string((void *) info64.lo_crypt_name,
-				    LO_NAME_SIZE, QUOTE_0_TERMINATED);
-		tprints(", lo_encrypt_key=");
-		print_quoted_string((void *) info64.lo_encrypt_key,
-				    LO_KEY_SIZE, 0);
-	}
-
-	if (!abbrev(tcp))
-		tprintf(", lo_init=[%#" PRIx64 ", %#" PRIx64 "]}",
-			(uint64_t) info64.lo_init[0],
-			(uint64_t) info64.lo_init[1]);
-	else
-		tprints(", ...}");
-}
-
-int
-loop_ioctl(struct tcb *tcp, const unsigned int code, long arg)
-{
-	if (!verbose(tcp))
-		return RVAL_DECODED;
+	if (entering(tcp))
+		return 0;
 
 	switch (code) {
-	case LOOP_GET_STATUS:
-		if (entering(tcp))
-			return 0;
-		/* fall through */
-	case LOOP_SET_STATUS:
-		decode_loop_info(tcp, arg);
-		break;
 
-	case LOOP_GET_STATUS64:
-		if (entering(tcp))
+	case LOOP_SET_STATUS:
+	case LOOP_GET_STATUS:
+		if (!verbose(tcp) || umove(tcp, arg, &info) < 0)
 			return 0;
-		/* fall through */
+
+		tprintf(", {number=%d", info.lo_number);
+
+		if (!abbrev(tcp)) {
+			tprintf(", device=%#lx, inode=%lu, rdevice=%#lx",
+				(unsigned long) info.lo_device,
+				info.lo_inode,
+				(unsigned long) info.lo_rdevice);
+		}
+
+		tprintf(", offset=%#x", info.lo_offset);
+
+		if (!abbrev(tcp) || info.lo_encrypt_type != LO_CRYPT_NONE) {
+			tprints(", encrypt_type=");
+			printxval(loop_crypt_type_options, info.lo_encrypt_type,
+				"LO_CRYPT_???");
+			tprintf(", encrypt_key_size=%d", info.lo_encrypt_key_size);
+		}
+
+		tprints(", flags=");
+		printflags(loop_flags_options, info.lo_flags, "LO_FLAGS_???");
+
+		string_quote(info.lo_name, s, -1, LO_NAME_SIZE);
+		tprintf(", name=%s", s);
+
+		if (!abbrev(tcp) || info.lo_encrypt_type != LO_CRYPT_NONE) {
+			string_quote((void *) info.lo_encrypt_key, s, 0, LO_KEY_SIZE);
+			tprintf(", encrypt_key=%s", s);
+		}
+
+		if (!abbrev(tcp))
+			tprintf(", init={%#lx, %#lx}"
+				", reserved={%#x, %#x, %#x, %#x}}",
+				info.lo_init[0], info.lo_init[1],
+				info.reserved[0], info.reserved[1],
+				info.reserved[2], info.reserved[3]);
+		else
+			tprints(", ...}");
+
+		return 1;
+
 	case LOOP_SET_STATUS64:
-		decode_loop_info64(tcp, arg);
-		break;
+	case LOOP_GET_STATUS64:
+		if (!verbose(tcp) || umove(tcp, arg, &info64) < 0)
+			return 0;
+
+		tprints(", {");
+
+		if (!abbrev(tcp)) {
+			tprintf("device=%" PRIu64 ", inode=%" PRIu64 ", "
+				"rdevice=%" PRIu64 ", offset=%#" PRIx64 ", "
+				"sizelimit=%" PRIu64 ", number=%" PRIu32,
+				(uint64_t) info64.lo_device,
+				(uint64_t) info64.lo_inode,
+				(uint64_t) info64.lo_rdevice,
+				(uint64_t) info64.lo_offset,
+				(uint64_t) info64.lo_sizelimit,
+				(uint32_t) info64.lo_number);
+		} else {
+			tprintf("offset=%#" PRIx64 ", number=%" PRIu32,
+				(uint64_t) info64.lo_offset,
+				(uint32_t) info64.lo_number);
+		}
+
+		if (!abbrev(tcp) || info64.lo_encrypt_type != LO_CRYPT_NONE) {
+			tprints(", encrypt_type=");
+			printxval(loop_crypt_type_options, info64.lo_encrypt_type,
+				"LO_CRYPT_???");
+			tprintf(", encrypt_key_size=%" PRIu32,
+				info64.lo_encrypt_key_size);
+		}
+
+		tprints(", flags=");
+		printflags(loop_flags_options, info64.lo_flags, "LO_FLAGS_???");
+
+		string_quote((void *) info64.lo_file_name, s, -1, LO_NAME_SIZE);
+		tprintf(", file_name=%s", s);
+
+		if (!abbrev(tcp) || info64.lo_encrypt_type != LO_CRYPT_NONE) {
+			string_quote((void *) info64.lo_crypt_name, s, -1, LO_NAME_SIZE);
+			tprintf(", crypt_name=%s", s);
+			string_quote((void *) info64.lo_encrypt_key, s, 0, LO_KEY_SIZE);
+			tprintf(", encrypt_key=%s", s);
+		}
+
+		if (!abbrev(tcp))
+			tprintf(", init={%#" PRIx64 ", %#" PRIx64 "}}",
+				(uint64_t) info64.lo_init[0],
+				(uint64_t) info64.lo_init[1]);
+		else
+			tprints(", ...}");
+
+		return 1;
 
 	case LOOP_CLR_FD:
 #ifdef LOOP_SET_CAPACITY
@@ -171,31 +174,18 @@ loop_ioctl(struct tcb *tcp, const unsigned int code, long arg)
 	case LOOP_CTL_GET_FREE:
 #endif
 		/* Takes no arguments */
-		break;
+		return 1;
 
 	case LOOP_SET_FD:
 	case LOOP_CHANGE_FD:
-		tprints(", ");
-		printfd(tcp, arg);
-		break;
-
 #ifdef LOOP_CTL_ADD
 	/* newer loop-control stuff */
 	case LOOP_CTL_ADD:
 	case LOOP_CTL_REMOVE:
-		tprintf(", %d", (int) arg);
-		break;
 #endif
-
-#ifdef LOOP_SET_DIRECT_IO
-	case LOOP_SET_DIRECT_IO:
-		tprintf(", %lu", arg);
-		break;
-#endif
+		/* These take simple args, so let default printer handle it */
 
 	default:
-		return RVAL_DECODED;
+		return 0;
 	}
-
-	return RVAL_DECODED | 1;
 }

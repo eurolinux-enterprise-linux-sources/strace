@@ -1,8 +1,8 @@
 diff -Nrup a/Makefile.am b/Makefile.am
---- a/Makefile.am	2016-07-22 16:46:33.000000000 -0400
-+++ b/Makefile.am	2016-07-22 16:49:00.260462649 -0400
-@@ -37,7 +37,7 @@ endif
- SUBDIRS = tests $(TESTS_M32) $(TESTS_MX32)
+--- a/Makefile.am	2012-04-18 09:27:25.000000000 -0600
++++ b/Makefile.am	2013-04-15 15:05:43.907237228 -0600
+@@ -3,7 +3,7 @@
+ SUBDIRS = tests
  
  bin_PROGRAMS = strace
 -man_MANS = strace.1
@@ -11,20 +11,20 @@ diff -Nrup a/Makefile.am b/Makefile.am
  
  OS		= linux
 diff -Nrup a/Makefile.in b/Makefile.in
---- a/Makefile.in	2016-07-22 16:46:33.000000000 -0400
-+++ b/Makefile.in	2016-07-22 16:49:00.267462671 -0400
-@@ -610,7 +610,7 @@ top_srcdir = @top_srcdir@
- @HAVE_M32_RUNTIME_TRUE@TESTS_M32 = tests-m32
- @HAVE_MX32_RUNTIME_TRUE@TESTS_MX32 = tests-mx32
- SUBDIRS = tests $(TESTS_M32) $(TESTS_MX32)
+--- a/Makefile.in	2012-05-02 09:40:25.000000000 -0600
++++ b/Makefile.in	2013-04-15 15:15:01.060139931 -0600
+@@ -302,7 +302,7 @@ top_build_prefix = @top_build_prefix@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ SUBDIRS = tests
 -man_MANS = strace.1
 +man_MANS = strace.1 strace-log-merge.1
  bin_SCRIPTS = strace-graph strace-log-merge
  OS = linux
  # ARCH is `i386', `m68k', `sparc', etc.
 diff -Nrup a/strace-log-merge.1 b/strace-log-merge.1
---- a/strace-log-merge.1	1969-12-31 19:00:00.000000000 -0500
-+++ b/strace-log-merge.1	2016-07-22 16:49:00.268462674 -0400
+--- a/strace-log-merge.1	1969-12-31 17:00:00.000000000 -0700
++++ b/strace-log-merge.1	2013-04-15 15:05:13.235353408 -0600
 @@ -0,0 +1,18 @@
 +.TH strace-log-merge 1 "15 April 2013" ".1" "strace-log-merge"
 +.SH NAME

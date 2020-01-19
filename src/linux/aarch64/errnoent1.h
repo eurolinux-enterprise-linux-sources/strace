@@ -1,2 +1,2 @@
-/* ARM personality */
-#include "errnoent.h"
+/* Native AArch64 */
+#include "../errnoent.h"

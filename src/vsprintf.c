@@ -11,14 +11,10 @@
 
 #include "defs.h"
 
-#if USE_CUSTOM_PRINTF
+#ifdef USE_CUSTOM_PRINTF
 
 #include <stdarg.h>
 #include <limits.h>
-
-#ifndef HAVE_FPUTS_UNLOCKED
-# define fputs_unlocked fputs
-#endif
 
 #define noinline_for_stack /*nothing*/
 #define likely(expr)       (expr)
@@ -776,7 +772,9 @@ int strace_vfprintf(FILE *fp, const char *fmt, va_list args)
 	if (len >= buflen) {
 		buflen = len + 256;
 		free(buf);
-		buf = xmalloc(buflen);
+		buf = malloc(buflen);
+		if (!buf)
+			die_out_of_memory();
 		/*len =*/ kernel_vsnprintf(buf, buflen, fmt, args);
 	}
 
