@@ -24,6 +24,38 @@ index 7d79724..75a8469 100644
  		default:
  			error_msg_and_fail("membarrier returned %#x, does"
  					   " the test have to be updated?", rc);
+diff --git a/tests-m32/membarrier.c b/tests-m32/membarrier.c
+index 7d79724..75a8469 100644
+--- a/tests-m32/membarrier.c
++++ b/tests-m32/membarrier.c
+@@ -55,6 +55,11 @@ main(void)
+ 			text = "MEMBARRIER_CMD_SHARED|"
+ 			       "MEMBARRIER_CMD_PRIVATE_EXPEDITED";
+ 			break;
++		case 1|8|16:
++			text = "MEMBARRIER_CMD_SHARED|"
++			       "MEMBARRIER_CMD_PRIVATE_EXPEDITED|"
++			       "MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED";
++			break;
+ 		default:
+ 			error_msg_and_fail("membarrier returned %#x, does"
+ 					   " the test have to be updated?", rc);
+diff --git a/tests-mx32/membarrier.c b/tests-mx32/membarrier.c
+index 7d79724..75a8469 100644
+--- a/tests-mx32/membarrier.c
++++ b/tests-mx32/membarrier.c
+@@ -55,6 +55,11 @@ main(void)
+ 			text = "MEMBARRIER_CMD_SHARED|"
+ 			       "MEMBARRIER_CMD_PRIVATE_EXPEDITED";
+ 			break;
++		case 1|8|16:
++			text = "MEMBARRIER_CMD_SHARED|"
++			       "MEMBARRIER_CMD_PRIVATE_EXPEDITED|"
++			       "MEMBARRIER_CMD_REGISTER_PRIVATE_EXPEDITED";
++			break;
+ 		default:
+ 			error_msg_and_fail("membarrier returned %#x, does"
+ 					   " the test have to be updated?", rc);
 diff --git a/xlat/membarrier_cmds.in b/xlat/membarrier_cmds.in
 index 3baef17..e4fe06a 100644
 --- a/xlat/membarrier_cmds.in

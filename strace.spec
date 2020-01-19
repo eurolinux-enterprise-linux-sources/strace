@@ -1,7 +1,7 @@
 Summary: Tracks and displays system calls associated with a running process
 Name: strace
 Version: 4.12
-Release: 6%{?dist}
+Release: 9%{?dist}
 License: BSD
 Group: Development/Debuggers
 URL: http://sourceforge.net/projects/strace/
@@ -26,6 +26,10 @@ Patch3003: strace-rh1449935.patch
 Patch3004: strace-rh1466535.patch
 Patch3005: strace-rh1540954-1.patch
 Patch3006: strace-rh1540954-2.patch
+Patch3007: strace-rh1573034.patch
+Patch3008: strace-rh1600210-0001-Update-MEMBARRIER_CMD_-constants.patch
+Patch3009: strace-rh1600210-0002-tests-membarrier.c-fix-expected-output-on-nohz_full-.patch
+
 
 # In the past we had a separate strace64 package, these days the
 # stndard 64 bit build provides that functionality.  For tracing
@@ -81,6 +85,9 @@ This package provides the `strace32' program to trace 32-bit processes on
 %patch3004 -p1
 %patch3005 -p1
 %patch3006 -p1
+%patch3007 -p1
+%patch3008 -p1
+%patch3009 -p1
 
 %build
 %configure
@@ -107,7 +114,7 @@ rm -f %{buildroot}%{_bindir}/strace-graph
 %check
 # Temporary until we dig deeper into the failures
 %ifnarch s390 s390x ppc64 ppc64le
-make -k check
+make -k check VERBOSE=1
 %endif
 
 %clean
@@ -127,6 +134,15 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
+* Sat Jul 21 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-9
+- Patch files in tests-m32 and tests-mx32 as well. (#1600210)
+
+* Thu Jul 19 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-8
+- Update membarrier constants. (#1600210)
+
+* Mon Apr 30 2018 Eugene Syromiatnikov <esyr@redhat.com> - 4.12-7
+- Return non-zero exit code if no processes have been attached. (#1573034)
+
 * Wed Feb  7 2018 DJ Delorie <dj@redhat.com> - 4.12-6
 - Update membarrier constants. (#1540954)
 
